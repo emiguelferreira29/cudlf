@@ -73,6 +73,7 @@ export default function App() {
   };
 
   const fetchEventos = async () => {
+    // Traz os eventos por data descendente (mais recentes primeiro)
     const { data, error } = await supabase.from('eventos').select('*').order('data', { ascending: false });
     if (!error) setEventos(data as Evento[]);
   };
@@ -121,6 +122,35 @@ export default function App() {
       if (!error) fetchEventos();
       else alert('Erro ao remover evento.');
     }
+  };
+
+  // Função para organizar eventos por Semana ISO e ordenar cronologicamente
+  const agruparEventosPorSemana = () => {
+    const grupos = new Map<string, Evento[]>();
+
+    eventos.forEach(evento => {
+      const d = new Date(evento.data);
+      const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+      const dayNum = date.getUTCDay() || 7;
+      date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+      const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+      const weekNo = Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+      const ano = date.getUTCFullYear();
+
+      const chave = `Semana ${weekNo} (${ano})`;
+
+      if (!grupos.has(chave)) {
+        grupos.set(chave, []);
+      }
+      grupos.get(chave)!.push(evento);
+    });
+
+    // Ordenar cronologicamente dentro de cada semana (mais antigo à esquerda/primeiro)
+    grupos.forEach(lista => {
+      lista.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
+    });
+
+    return Array.from(grupos.entries());
   };
 
   if (!user) {
@@ -198,37 +228,50 @@ export default function App() {
         </>
       )}
 
-      {/* CALENDÁRIO VISUAL */}
+      {/* CALENDÁRIO VISUAL AGRUPADO POR SEMANA */}
       <div style={{ marginTop: '30px' }}>
         <h2>📅 Calendário (Treinos e Jogos)</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '15px' }}>
-          {eventos.length === 0 ? <p>Sem eventos agendados.</p> : eventos.map((evento) => (
-            <div key={evento.id} style={{ padding: '15px', backgroundColor: evento.tipo.includes('Jogo') ? '#ffebee' : '#e8f5e9', border: `1px solid ${evento.tipo.includes('Jogo') ? '#ffcdd2' : '#c8e6c9'}`, borderRadius: '8px', position: 'relative' }}>
-              <div style={{ fontWeight: 'bold', fontSize: '1.1em', color: '#333' }}>
-                {new Date(evento.data).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' })}
+        
+        {eventos.length === 0 ? (
+          <p>Sem eventos agendados.</p>
+        ) : (
+          agruparEventosPorSemana().map(([semana, listaEventos]) => (
+            <div key={semana} style={{ marginBottom: '30px' }}>
+              <h3 style={{ borderBottom: '2px solid #555', paddingBottom: '8px', marginBottom: '15px' }}>{semana}</h3>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '15px' }}>
+                {listaEventos.map((evento) => (
+                  <div key={evento.id} style={{ padding: '15px', backgroundColor: evento.tipo.includes('Jogo') ? '#ffebee' : '#e8f5e9', border: `1px solid ${evento.tipo.includes('Jogo') ? '#ffcdd2' : '#c8e6c9'}`, borderRadius: '8px', position: 'relative' }}>
+                    
+                    <div style={{ fontWeight: 'bold', fontSize: '1.1em', color: '#333' }}>
+                      {new Date(evento.data).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </div>
+                    
+                    <div style={{ color: evento.tipo.includes('Jogo') ? '#d32f2f' : '#2e7d32', marginTop: '5px', fontWeight: 'bold' }}>
+                      {evento.tipo}
+                    </div>
+                    
+                    {evento.adversario && (
+                      <div style={{ marginTop: '5px', fontSize: '0.9em', color: '#555' }}>
+                        🆚 {evento.adversario}
+                      </div>
+                    )}
+                    
+                    {user.perfil === 'admin' && (
+                      <button onClick={() => removerEvento(evento.id)} style={{ position: 'absolute', top: '10px', right: '10px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', padding: '4px 8px', fontSize: '0.7em', cursor: 'pointer' }}>
+                        Eliminar
+                      </button>
+                    )}
+                    
+                    <button style={{ width: '100%', marginTop: '15px', padding: '8px', backgroundColor: '#3498db', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                      Ver Notas
+                    </button>
+                  </div>
+                ))}
               </div>
-              <div style={{ color: evento.tipo.includes('Jogo') ? '#d32f2f' : '#2e7d32', marginTop: '5px', fontWeight: 'bold' }}>
-                {evento.tipo}
-              </div>
-              
-              {evento.adversario && (
-                <div style={{ marginTop: '5px', fontSize: '0.9em', color: '#555' }}>
-                  🆚 {evento.adversario}
-                </div>
-              )}
-              
-              {user.perfil === 'admin' && (
-                <button onClick={() => removerEvento(evento.id)} style={{ position: 'absolute', top: '10px', right: '10px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', padding: '4px 8px', fontSize: '0.7em', cursor: 'pointer' }}>
-                  Eliminar
-                </button>
-              )}
-              
-              <button style={{ width: '100%', marginTop: '15px', padding: '8px', backgroundColor: '#3498db', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                Ver Notas
-              </button>
             </div>
-          ))}
-        </div>
+          ))
+        )}
       </div>
 
       <div style={{ marginTop: '40px' }}>
@@ -236,11 +279,10 @@ export default function App() {
         <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
           <thead>
             <tr style={{ backgroundColor: '#f3f4f6', textAlign: 'left' }}>
-              <th style={{ padding: '12px', borderBottom: '1px solid #ddd' }}>Atleta</th>
-              <th style={{ padding: '12px', borderBottom: '1px solid #ddd' }}>Posição</th>
-              <th style={{ padding: '12px', borderBottom: '1px solid #ddd' }}>Média Final</th>
-              {/* O Admin volta a ver a coluna de Ações */}
-              {user.perfil === 'admin' && <th style={{ padding: '12px', borderBottom: '1px solid #ddd' }}>Ações</th>}
+              <th style={{ padding: '12px', borderBottom: '1px solid #ddd', color: '#333' }}>Atleta</th>
+              <th style={{ padding: '12px', borderBottom: '1px solid #ddd', color: '#333' }}>Posição</th>
+              <th style={{ padding: '12px', borderBottom: '1px solid #ddd', color: '#333' }}>Média Final</th>
+              {user.perfil === 'admin' && <th style={{ padding: '12px', borderBottom: '1px solid #ddd', color: '#333' }}>Ações</th>}
             </tr>
           </thead>
           <tbody>
@@ -249,7 +291,6 @@ export default function App() {
                 <td style={{ padding: '12px', borderBottom: '1px solid #eee', fontWeight: 'bold' }}>{atleta.nome}</td>
                 <td style={{ padding: '12px', borderBottom: '1px solid #eee' }}>{atleta.posicao}</td>
                 <td style={{ padding: '12px', borderBottom: '1px solid #eee', color: '#e67e22', fontWeight: 'bold' }}>{atleta.media_geral || 'S/ Nota'}</td>
-                {/* O botão de remover atleta volta a estar ativo e visível */}
                 {user.perfil === 'admin' && (
                   <td style={{ padding: '12px', borderBottom: '1px solid #eee' }}>
                     <button onClick={() => removerAtleta(atleta.id)} style={{ padding: '5px 10px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8em' }}>Remover</button>
