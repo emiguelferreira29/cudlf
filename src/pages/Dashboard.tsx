@@ -10,6 +10,13 @@ interface DashboardProps {
 
 const PESO_POSICAO: Record<string, number> = { 'Guarda-Redes': 1, 'Defesa': 2, 'Médio': 3, 'Avançada': 4 };
 
+// Função para definir a cor com base no tipo de evento
+const getCorEvento = (tipo: string) => {
+  if (tipo === 'Jogo (Oficial)') return '#ef4444'; // Vermelho
+  if (tipo === 'Jogo (Treino)') return '#f59e0b'; // Laranja
+  return '#10b981'; // Verde (Treino)
+};
+
 export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas }: DashboardProps) {
   const [relatorio, setRelatorio] = useState<AtletaRelatorio[]>([]);
   const [eventos, setEventos] = useState<Evento[]>([]);
@@ -205,7 +212,7 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
               <h4 style={{ color: '#475569', fontSize: '0.95em', borderBottom: '1px solid #cbd5e1', paddingBottom: '5px', marginBottom: '12px', textAlign: 'center' }}>{semana}</h4>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '12px' }}>
                 {lista.map(ev => (
-                  <div key={ev.id} style={{ backgroundColor: 'white', borderLeft: `4px solid ${ev.tipo.includes('Jogo') ? '#ef4444' : '#10b981'}`, padding: '12px', borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <div key={ev.id} style={{ backgroundColor: 'white', borderLeft: `4px solid ${getCorEvento(ev.tipo)}`, padding: '12px', borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div style={{ fontWeight: 'bold', color: '#1e293b', fontSize: '1em' }}>{new Date(ev.data).toLocaleDateString('pt-PT')}</div>
@@ -216,7 +223,7 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
                           </div>
                         )}
                       </div>
-                      <div style={{ color: ev.tipo.includes('Jogo') ? '#ef4444' : '#10b981', fontSize: '0.85em', fontWeight: 'bold', marginTop: '4px' }}>{ev.tipo}</div>
+                      <div style={{ color: getCorEvento(ev.tipo), fontSize: '0.85em', fontWeight: 'bold', marginTop: '4px' }}>{ev.tipo}</div>
                       {ev.adversario && <div style={{ fontSize: '0.8em', color: '#64748b', marginTop: '4px' }}>🆚 {ev.adversario}</div>}
                     </div>
                     <button type="button" onClick={() => onSelecionarEvento(ev)} style={{ width: '100%', marginTop: '12px', padding: '8px', backgroundColor: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer', fontWeight: '500', fontSize: '0.9em' }}>Ver Notas</button>
