@@ -97,7 +97,6 @@ export default function App() {
   const adicionarEvento = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validação extra por segurança
     if (novoTipo.includes('Jogo') && !novoAdversario.trim()) {
       alert('Por favor, indique o adversário.');
       return;
@@ -169,7 +168,7 @@ export default function App() {
                 <option value="Médio">Médio</option>
                 <option value="Avançada">Avançada</option>
               </select>
-              <button type="submit" style={{ padding: '8px 15px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Adicionar</button>
+              <button type="submit" style={{ padding: '8px 15px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Adicionar Atleta</button>
             </form>
           </div>
 
@@ -183,7 +182,6 @@ export default function App() {
                 <option value="Jogo (Treino)">Jogo (Treino)</option>
               </select>
               
-              {/* O campo Adversário só aparece se for um Jogo */}
               {novoTipo.includes('Jogo') && (
                 <input 
                   type="text" 
@@ -213,7 +211,6 @@ export default function App() {
                 {evento.tipo}
               </div>
               
-              {/* Mostra o adversário no cartão se existir */}
               {evento.adversario && (
                 <div style={{ marginTop: '5px', fontSize: '0.9em', color: '#555' }}>
                   🆚 {evento.adversario}
@@ -234,7 +231,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* Tabela de Classificação Mantida no Fundo */}
       <div style={{ marginTop: '40px' }}>
         <h2>🏆 Classificação Geral</h2>
         <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
@@ -243,6 +239,8 @@ export default function App() {
               <th style={{ padding: '12px', borderBottom: '1px solid #ddd' }}>Atleta</th>
               <th style={{ padding: '12px', borderBottom: '1px solid #ddd' }}>Posição</th>
               <th style={{ padding: '12px', borderBottom: '1px solid #ddd' }}>Média Final</th>
+              {/* O Admin volta a ver a coluna de Ações */}
+              {user.perfil === 'admin' && <th style={{ padding: '12px', borderBottom: '1px solid #ddd' }}>Ações</th>}
             </tr>
           </thead>
           <tbody>
@@ -251,6 +249,12 @@ export default function App() {
                 <td style={{ padding: '12px', borderBottom: '1px solid #eee', fontWeight: 'bold' }}>{atleta.nome}</td>
                 <td style={{ padding: '12px', borderBottom: '1px solid #eee' }}>{atleta.posicao}</td>
                 <td style={{ padding: '12px', borderBottom: '1px solid #eee', color: '#e67e22', fontWeight: 'bold' }}>{atleta.media_geral || 'S/ Nota'}</td>
+                {/* O botão de remover atleta volta a estar ativo e visível */}
+                {user.perfil === 'admin' && (
+                  <td style={{ padding: '12px', borderBottom: '1px solid #eee' }}>
+                    <button onClick={() => removerAtleta(atleta.id)} style={{ padding: '5px 10px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8em' }}>Remover</button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
