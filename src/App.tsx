@@ -16,6 +16,12 @@ interface Utilizador {
   nome: string;
 }
 
+interface Evento {
+  id: string;
+  data: string;
+  tipo: string;
+}
+
 export default function App() {
   const [user, setUser] = useState<Utilizador | null>(null);
   const [usernameInput, setUsernameInput] = useState('');
@@ -23,10 +29,15 @@ export default function App() {
   const [erroLogin, setErroLogin] = useState('');
   
   const [relatorio, setRelatorio] = useState<AtletaRelatorio[]>([]);
+  const [eventos, setEventos] = useState<Evento[]>([]);
 
-  // Estados para adicionar atleta
+  // Estados Atletas
   const [novoNome, setNovoNome] = useState('');
   const [novaPosicao, setNovaPosicao] = useState('Avançada');
+
+  // Estados Eventos
+  const [novaData, setNovaData] = useState('');
+  const [novoTipo, setNovoTipo] = useState('Treino');
 
   const fazerLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,6 +55,7 @@ export default function App() {
     } else {
       setUser(data as Utilizador);
       fetchRelatorio();
+      fetchEventos();
     }
   };
 
@@ -58,15 +70,20 @@ export default function App() {
     if (!error) setRelatorio(data as AtletaRelatorio[]);
   };
 
+  const fetchEventos = async () => {
+    // Traz os eventos ordenados pela data (mais recentes primeiro)
+    const { data, error } = await supabase.from('eventos').select('*').order('data', { ascending: false });
+    if (!error) setEventos(data as Evento[]);
+  };
+
+  // --- FUNÇÕES DE ATLETAS ---
   const adicionarAtleta = async (e: React.FormEvent) => {
     e.preventDefault();
     const { error } = await supabase.from('atletas').insert([{ nome: novoNome, posicao: novaPosicao }]);
     if (!error) {
       setNovoNome('');
       fetchRelatorio();
-    } else {
-      alert('Erro ao adicionar atleta.');
-    }
+    } else alert('Erro ao adicionar atleta.');
   };
 
   const removerAtleta = async (id: string) => {
@@ -77,11 +94,30 @@ export default function App() {
     }
   };
 
+  // --- FUNÇÕES DE EVENTOS (TREINOS/JOGOS) ---
+  const adicionarEvento = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const { error } = await supabase.from('eventos').insert([{ data: novaData, tipo: novoTipo }]);
+    if (!error) {
+      setNovaData('');
+      fetchEventos();
+    } else alert('Erro ao criar evento.');
+  };
+
+  const removerEvento = async (id: string) => {
+    if (window.confirm('Tem a certeza que quer apagar este evento? Todas as avaliações deste dia desaparecerão.')) {
+      const { error } = await supabase.from('eventos').delete().eq('id', id);
+      if (!error) fetchEventos();
+      else alert('Erro ao remover evento.');
+    }
+  };
+
+  // --- ECRÃ DE LOGIN ---
   if (!user) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#f3f4f6' }}>
         <form onSubmit={fazerLogin} style={{ backgroundColor: 'white', padding: '40px', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', width: '100%', maxWidth: '400px' }}>
-          <h2 style={{ textAlign: 'center', color: '#2c3e50', marginBottom: '30px' }}>Login do Clube</h2>
+          <h2 style={{ textAlign: 'center', color: '#2c3e50', marginBottom: '30px' }}>Plataforma de Avaliação</h2>
           {erroLogin && <p style={{ color: 'red', textAlign: 'center', marginBottom: '15px' }}>{erroLogin}</p>}
           <div style={{ marginBottom: '15px' }}>
             <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Utilizador</label>
@@ -97,10 +133,11 @@ export default function App() {
     );
   }
 
+  // --- PAINEL PRINCIPAL ---
   return (
     <div style={{ padding: '20px', fontFamily: 'system-ui, sans-serif', maxWidth: '800px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #3498db', paddingBottom: '10px' }}>
-        <h1 style={{ color: '#2c3e50', margin: 0 }}>⚽ Painel do Clube</h1>
+        <h1 style={{ color: '#2c3e50', margin: 0 }}>⚽ Painel de Gestão</h1>
         <div style={{ textAlign: 'right' }}>
           <p style={{ margin: '0 0 5px 0', fontWeight: 'bold' }}>{user.nome}</p>
           <span style={{ fontSize: '0.8em', backgroundColor: user.perfil === 'admin' ? '#e74c3c' : '#2ecc71', color: 'white', padding: '2px 8px', borderRadius: '12px', marginRight: '10px' }}>
@@ -111,29 +148,63 @@ export default function App() {
       </div>
 
       {user.perfil === 'admin' && (
-        <div style={{ marginTop: '20px', padding: '20px', backgroundColor: '#fff3cd', borderRadius: '8px', border: '1px solid #ffeeba' }}>
-          <h3 style={{ marginTop: 0 }}>Gestão de Plantel (Diretor)</h3>
-          <form onSubmit={adicionarAtleta} style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-            <input type="text" placeholder="Nome da Atleta" value={novoNome} onChange={(e) => setNovoNome(e.target.value)} required style={{ flex: 1, padding: '8px' }} />
-            <select value={novaPosicao} onChange={(e) => setNovaPosicao(e.target.value)} style={{ padding: '8px' }}>
-              <option value="Guarda-Redes">Guarda-Redes</option>
-              <option value="Defesa">Defesa</option>
-              <option value="Médio">Médio</option>
-              <option value="Avançada">Avançada</option>
-            </select>
-            <button type="submit" style={{ padding: '8px 15px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Adicionar</button>
-          </form>
-        </div>
+        <>
+          <div style={{ marginTop: '20px', padding: '20px', backgroundColor: '#fff3cd', borderRadius: '8px', border: '1px solid #ffeeba' }}>
+            <h3 style={{ marginTop: 0 }}>👥 Gestão de Plantel</h3>
+            <form onSubmit={adicionarAtleta} style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <input type="text" placeholder="Nome da Atleta" value={novoNome} onChange={(e) => setNovoNome(e.target.value)} required style={{ flex: '1 1 200px', padding: '8px' }} />
+              <select value={novaPosicao} onChange={(e) => setNovaPosicao(e.target.value)} style={{ padding: '8px' }}>
+                <option value="Guarda-Redes">Guarda-Redes</option>
+                <option value="Defesa">Defesa</option>
+                <option value="Médio">Médio</option>
+                <option value="Avançada">Avançada</option>
+              </select>
+              <button type="submit" style={{ padding: '8px 15px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Adicionar Atleta</button>
+            </form>
+          </div>
+
+          <div style={{ marginTop: '20px', padding: '20px', backgroundColor: '#e2e3e5', borderRadius: '8px', border: '1px solid #d6d8db' }}>
+            <h3 style={{ marginTop: 0 }}>📅 Marcar Novo Evento</h3>
+            <form onSubmit={adicionarEvento} style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <input type="date" value={novaData} onChange={(e) => setNovaData(e.target.value)} required style={{ padding: '8px' }} />
+              <select value={novoTipo} onChange={(e) => setNovoTipo(e.target.value)} style={{ padding: '8px' }}>
+                <option value="Treino">Treino</option>
+                <option value="Jogo">Jogo</option>
+              </select>
+              <button type="submit" style={{ padding: '8px 15px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Criar Evento</button>
+            </form>
+          </div>
+        </>
       )}
 
-      {user.perfil === 'treinador' && (
-        <div style={{ marginTop: '20px', padding: '15px', backgroundColor: '#d1ecf1', borderRadius: '8px', borderLeft: '5px solid #17a2b8' }}>
-          <strong>Área de Treinador:</strong> Aqui entrará em breve o calendário e o acesso para avaliar os treinos.
-        </div>
-      )}
-
+      {/* CALENDÁRIO VISUAL */}
       <div style={{ marginTop: '30px' }}>
-        <h2>🏆 Plantel e Classificação Geral</h2>
+        <h2>📅 Calendário (Treinos e Jogos)</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '15px' }}>
+          {eventos.length === 0 ? <p>Sem eventos agendados.</p> : eventos.map((evento) => (
+            <div key={evento.id} style={{ padding: '15px', backgroundColor: evento.tipo === 'Jogo' ? '#ffebee' : '#e8f5e9', border: `1px solid ${evento.tipo === 'Jogo' ? '#ffcdd2' : '#c8e6c9'}`, borderRadius: '8px', position: 'relative' }}>
+              <div style={{ fontWeight: 'bold', fontSize: '1.1em', color: '#333' }}>
+                {new Date(evento.data).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' })}
+              </div>
+              <div style={{ color: '#666', marginTop: '5px' }}>{evento.tipo}</div>
+              
+              {user.perfil === 'admin' && (
+                <button onClick={() => removerEvento(evento.id)} style={{ position: 'absolute', top: '10px', right: '10px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', padding: '4px 8px', fontSize: '0.7em', cursor: 'pointer' }}>
+                  Eliminar
+                </button>
+              )}
+              
+              {/* Botão para Avaliar será adicionado aqui depois */}
+              <button style={{ width: '100%', marginTop: '15px', padding: '8px', backgroundColor: '#3498db', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                Ver Notas
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ marginTop: '40px' }}>
+        <h2>🏆 Classificação Geral</h2>
         <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
           <thead>
             <tr style={{ backgroundColor: '#f3f4f6', textAlign: 'left' }}>
