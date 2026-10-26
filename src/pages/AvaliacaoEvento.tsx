@@ -145,6 +145,7 @@ export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGua
                     {aval?.semPontuacao ? (
                       <select value={aval.motivo || 'Falta'} onChange={(e) => atualizarInput(atleta.id, 'motivo', e.target.value)} style={{ padding: '8px 12px', borderRadius: '6px', border: '2px solid #cbd5e1', backgroundColor: '#ffffff', color: '#334155', fontSize: '0.9em', fontWeight: '500' }}>
                         <option value="Falta">Falta (Conta 0)</option>
+                        <option value="Justificada">Justificada</option>
                         <option value="Doente">Doente</option>
                         <option value="Lesionada">Lesionada</option>
                         <option value="Não aplicável">Não aplicável</option>
