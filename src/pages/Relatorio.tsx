@@ -9,14 +9,14 @@ interface RelatorioProps {
 export default function Relatorio({ atletas }: RelatorioProps) {
   const [avaliacoes, setAvaliacoes] = useState<any[]>([]);
   const [treinadores, setTreinadores] = useState<{id: string, nome: string}[]>([]);
+  const [eventosPassados, setEventosPassados] = useState<any[]>([]);
   const [tipoView, setTipoView] = useState<'global' | 'individual'>('global');
   
-  // Estados para o Relatório Individual
   const [atletaSelecionada, setAtletaSelecionada] = useState<string>('');
   const [periodo, setPeriodo] = useState<'semana' | 'mes'>('semana');
 
   useEffect(() => {
-    carregarTodasAvaliacoes();
+    carregarDados();
   }, []);
 
   useEffect(() => {
@@ -25,21 +25,24 @@ export default function Relatorio({ atletas }: RelatorioProps) {
     }
   }, [atletas]);
 
-  const carregarTodasAvaliacoes = async () => {
-    // Carrega todas as avaliações, incluindo o nome do treinador que as fez
-    const { data } = await supabase
+  const carregarDados = async () => {
+    const hoje = new Date().toISOString().split('T')[0];
+    
+    // Contabiliza apenas os eventos que já aconteceram
+    const { data: evData } = await supabase.from('eventos').select('id, data');
+    if (evData) {
+      setEventosPassados(evData.filter(e => e.data <= hoje));
+    }
+
+    const { data: avData } = await supabase
       .from('avaliacoes')
       .select('nota, atleta_id, treinador_id, eventos(data), treinador:utilizadores(nome)');
     
-    if (data) {
-      setAvaliacoes(data);
-      
-      // Extrair a lista de treinadores únicos (ex: Pedro, Daniela)
+    if (avData) {
+      setAvaliacoes(avData);
       const tMap = new Map<string, string>();
-      data.forEach((av: any) => {
-        if (av.treinador?.nome) {
-          tMap.set(av.treinador_id, av.treinador.nome.split(' ')[0]); // Apenas o primeiro nome
-        }
+      avData.forEach((av: any) => {
+        if (av.treinador?.nome) tMap.set(av.treinador_id, av.treinador.nome.split(' ')[0]);
       });
       setTreinadores(Array.from(tMap.entries()).map(([id, nome]) => ({ id, nome })));
     }
@@ -53,24 +56,22 @@ export default function Relatorio({ atletas }: RelatorioProps) {
     return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
   };
 
-  // Processamento e ordenação para a tabela Global
+  const divisorTotal = eventosPassados.length > 0 ? eventosPassados.length : 1;
+
   const atletasComMedias = atletas.map(atleta => {
     const notasAtleta = avaliacoes.filter(av => av.atleta_id === atleta.id && av.nota !== null);
     
-    // Média Global da Atleta
     const globalNotas = notasAtleta.map(av => parseFloat(av.nota));
-    const mediaGlobal = globalNotas.length > 0 ? globalNotas.reduce((a, b) => a + b, 0) / globalNotas.length : null;
+    const mediaGlobal = globalNotas.length > 0 ? globalNotas.reduce((a, b) => a + b, 0) / divisorTotal : null;
 
-    // Médias por Treinador
     const mediasTreinador: Record<string, number | null> = {};
     treinadores.forEach(t => {
       const notasT = notasAtleta.filter(av => av.treinador_id === t.id).map(av => parseFloat(av.nota));
-      mediasTreinador[t.id] = notasT.length > 0 ? notasT.reduce((a, b) => a + b, 0) / notasT.length : null;
+      mediasTreinador[t.id] = notasT.length > 0 ? notasT.reduce((a, b) => a + b, 0) / divisorTotal : null;
     });
 
     return { ...atleta, mediaGlobal, mediasTreinador };
   }).sort((a, b) => {
-    // Ordenar da pontuação mais alta para a mais baixa
     const valA = a.mediaGlobal ?? -1;
     const valB = b.mediaGlobal ?? -1;
     if (valA !== valB) return valB - valA;
@@ -83,31 +84,33 @@ export default function Relatorio({ atletas }: RelatorioProps) {
     const anoAtual = hoje.getFullYear();
     const semanaAtual = getWeekNumber(hoje);
 
+    const eventosDoPeriodo = eventosPassados.filter(e => {
+      const d = new Date(e.data);
+      if (periodo === 'mes') return (d.getMonth() + 1) === mesAtual && d.getFullYear() === anoAtual;
+      return getWeekNumber(d) === semanaAtual && d.getFullYear() === anoAtual;
+    });
+
+    const divisorInd = eventosDoPeriodo.length > 0 ? eventosDoPeriodo.length : 1;
+
     const notasDoPeriodo = avaliacoes.filter(av => {
       if (av.atleta_id !== atletaSelecionada || av.nota === null || !av.eventos) return false;
-      const dataEvento = new Date(av.eventos.data);
-      
-      if (periodo === 'mes') {
-        return (dataEvento.getMonth() + 1) === mesAtual && dataEvento.getFullYear() === anoAtual;
-      } else {
-        return getWeekNumber(dataEvento) === semanaAtual && dataEvento.getFullYear() === anoAtual;
-      }
+      const d = new Date(av.eventos.data);
+      if (periodo === 'mes') return (d.getMonth() + 1) === mesAtual && d.getFullYear() === anoAtual;
+      return getWeekNumber(d) === semanaAtual && d.getFullYear() === anoAtual;
     }).map(av => parseFloat(av.nota));
 
     if (notasDoPeriodo.length === 0) {
       return `Ainda não existem notas tuas registadas nesta ${periodo === 'semana' ? 'semana' : 'mês'}.`;
     }
 
-    const media = (notasDoPeriodo.reduce((a, b) => a + b, 0) / notasDoPeriodo.length).toFixed(1);
+    const soma = notasDoPeriodo.reduce((a, b) => a + b, 0);
+    const media = (soma / divisorInd).toFixed(1);
     const textoPeriodo = periodo === 'semana' ? 'desta semana' : 'deste mês';
     
     return `A média da tua pontuação ${textoPeriodo} é de ${media}`;
   };
 
-  const imprimirPDF = () => {
-    window.print();
-  };
-
+  const imprimirPDF = () => window.print();
   const atletaSelDados = atletas.find(a => a.id === atletaSelecionada);
 
   return (
@@ -141,12 +144,9 @@ export default function Relatorio({ atletas }: RelatorioProps) {
               <tr>
                 <th style={{ padding: '10px', borderBottom: '2px solid #e2e8f0', color: '#475569' }}>Nº</th>
                 <th style={{ padding: '10px', borderBottom: '2px solid #e2e8f0', color: '#475569' }}>Atleta</th>
-                
-                {/* Colunas Dinâmicas dos Treinadores */}
                 {treinadores.map(t => (
                   <th key={t.id} style={{ padding: '10px', borderBottom: '2px solid #e2e8f0', color: '#475569', textAlign: 'center' }}>{t.nome}</th>
                 ))}
-                
                 <th style={{ padding: '10px', borderBottom: '2px solid #e2e8f0', color: '#0f172a', textAlign: 'center' }}>Média Global</th>
               </tr>
             </thead>
@@ -158,14 +158,11 @@ export default function Relatorio({ atletas }: RelatorioProps) {
                     {atleta.nome}
                     <div style={{ fontSize: '0.8em', color: '#94a3b8', fontWeight: 'normal' }}>{atleta.posicao}</div>
                   </td>
-                  
-                  {/* Notas individuais dos treinadores */}
                   {treinadores.map(t => (
                     <td key={t.id} style={{ padding: '10px', borderBottom: '1px solid #f1f5f9', color: '#64748b', textAlign: 'center' }}>
                       {atleta.mediasTreinador[t.id] ? atleta.mediasTreinador[t.id]?.toFixed(2) : '-'}
                     </td>
                   ))}
-                  
                   <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9', fontWeight: 'bold', color: '#f59e0b', textAlign: 'center', fontSize: '1.1em' }}>
                     {atleta.mediaGlobal ? atleta.mediaGlobal.toFixed(2) : '-'}
                   </td>
