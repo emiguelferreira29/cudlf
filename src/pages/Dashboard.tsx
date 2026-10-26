@@ -8,7 +8,6 @@ interface DashboardProps {
   onAtualizarAtletas: (atletas: Atleta[]) => void;
 }
 
-// Estendemos o tipo Evento localmente para incluir as iniciais dos treinadores
 interface EventoComAvaliadores extends Evento {
   avaliadores?: string[];
 }
@@ -56,7 +55,6 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
   };
 
   const fetchEventos = async () => {
-    // Pedimos também as avaliações e o nome do treinador associado a cada avaliação
     const { data } = await supabase
       .from('eventos')
       .select('*, avaliacoes(treinador:utilizadores(nome))')
@@ -71,7 +69,6 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
             if (nome && !nomes.includes(nome)) nomes.push(nome);
           });
         }
-        // Extrai a primeira letra de cada treinador que avaliou
         const avaliadores = nomes.map(n => n.charAt(0).toUpperCase());
         
         return {
@@ -99,6 +96,7 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
     }
   };
 
+  // --- Lógica de Edição/Eliminação (Apenas Admin) ---
   const iniciarEdicaoEvento = (ev: Evento) => {
     setEditandoEvento(ev.id);
     setNovaData(ev.data);
@@ -170,10 +168,11 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
     return Array.from(grupos.entries());
   };
 
+  // Ordenação decrescente pela Média Geral (atletas sem média vão para o fim)
   const relatorioOrdenado = [...relatorio].sort((a, b) => {
-    const pesoA = PESO_POSICAO[a.posicao] ?? 99;
-    const pesoB = PESO_POSICAO[b.posicao] ?? 99;
-    if (pesoA !== pesoB) return pesoA - pesoB;
+    const valA = a.media_geral !== null && a.media_geral !== undefined ? Number(a.media_geral) : -1;
+    const valB = b.media_geral !== null && b.media_geral !== undefined ? Number(b.media_geral) : -1;
+    if (valA !== valB) return valB - valA;
     return a.nome.localeCompare(b.nome, 'pt-PT');
   });
 
@@ -262,7 +261,6 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
                         <div style={{ color: getCorEvento(ev.tipo), fontSize: '0.85em', fontWeight: 'bold', marginTop: '4px' }}>{ev.tipo}</div>
                         {ev.adversario && <div style={{ fontSize: '0.8em', color: '#64748b', marginTop: '2px' }}>🆚 {ev.adversario}</div>}
                         
-                        {/* Exibição das Iniciais dos Treinadores que avaliaram */}
                         {ev.avaliadores && ev.avaliadores.length > 0 && (
                           <div style={{ display: 'flex', gap: '5px', marginTop: '10px' }}>
                             {ev.avaliadores.map((inicial, idx) => (
@@ -312,11 +310,14 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
               {relatorioOrdenado.map(atleta => (
                 <tr key={atleta.id}>
                   <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', color: '#64748b', fontSize: '0.9em', textAlign: 'center' }}>{atleta.numero || '-'}</td>
+                  
                   <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9' }}>
                     <div style={{ fontWeight: '600', color: '#1e293b', fontSize: '0.95em' }}>{atleta.nome}</div>
                     <div style={{ fontSize: '0.75em', color: '#94a3b8', marginTop: '2px' }}>{atleta.posicao}</div>
                   </td>
-                  <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', fontWeight: 'bold', color: '#f59e0b', fontSize: '0.95em', textAlign: 'center' }}>{atleta.media_geral || '-'}</td>
+                  
+                  <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', fontWeight: 'bold', color: '#f59e0b', fontSize: '0.95em', textAlign: 'center' }}>{atleta.media_geral ?? '-'}</td>
+                  
                   {user.perfil === 'admin' && (
                     <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', textAlign: 'center' }}>
                       <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
