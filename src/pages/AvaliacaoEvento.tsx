@@ -10,6 +10,14 @@ interface AvaliacaoProps {
   onGuardado: () => void;
 }
 
+// Ordem tática no terreno de jogo (Defesa -> Ataque)
+const PESO_POSICAO: Record<string, number> = {
+  'Guarda-Redes': 1,
+  'Defesa': 2,
+  'Médio': 3,
+  'Avançada': 4
+};
+
 export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGuardado }: AvaliacaoProps) {
   const [avaliacoes, setAvaliacoes] = useState<Record<string, AvaliacaoInput>>({});
   const [salvando, setSalvando] = useState(false);
@@ -45,7 +53,6 @@ export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGua
     });
   };
 
-  // Remove a avaliação da atleta na base de dados e no ecrã
   const removerAvaliacao = async (atletaId: string) => {
     if (!window.confirm('Pretende remover a avaliação atribuída a esta atleta neste evento?')) return;
 
@@ -100,9 +107,19 @@ export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGua
     }
   };
 
+  // Ordenação tática: Posição do campo + Nome alfabético
+  const atletasOrdenadas = [...atletas].sort((a, b) => {
+    const pesoA = PESO_POSICAO[a.posicao] ?? 99;
+    const pesoB = PESO_POSICAO[b.posicao] ?? 99;
+
+    if (pesoA !== pesoB) {
+      return pesoA - pesoB;
+    }
+    return a.nome.localeCompare(b.nome, 'pt-PT');
+  });
+
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-      {/* Cabeçalho do Evento */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', backgroundColor: 'white', padding: '16px 20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
         <div>
           <h2 style={{ margin: '0 0 4px 0', color: '#0f172a', fontSize: '1.25em' }}>Registo de Notas</h2>
@@ -120,9 +137,8 @@ export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGua
         </button>
       </div>
 
-      {/* Lista de Atletas */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '25px' }}>
-        {atletas.map(atleta => {
+        {atletasOrdenadas.map(atleta => {
           const aval = avaliacoes[atleta.id];
           const temRegisto = aval && (aval.nota.trim() !== '' || aval.semPontuacao);
 
@@ -202,7 +218,6 @@ export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGua
                   />
                 )}
 
-                {/* Botão para limpar a nota desta atleta */}
                 {temRegisto && (
                   <button 
                     type="button"

@@ -8,13 +8,20 @@ interface DashboardProps {
   onAtualizarAtletas: (atletas: Atleta[]) => void;
 }
 
+const PESO_POSICAO: Record<string, number> = {
+  'Guarda-Redes': 1,
+  'Defesa': 2,
+  'Médio': 3,
+  'Avançada': 4
+};
+
 export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas }: DashboardProps) {
   const [relatorio, setRelatorio] = useState<AtletaRelatorio[]>([]);
   const [eventos, setEventos] = useState<Evento[]>([]);
 
   // Estados Form Atleta
   const [novoNome, setNovoNome] = useState('');
-  const [novaPosicao, setNovaPosicao] = useState('Avançada');
+  const [novaPosicao, setNovaPosicao] = useState('Guarda-Redes');
 
   // Estados Form Evento
   const [novaData, setNovaData] = useState('');
@@ -42,8 +49,16 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
   };
 
   const fetchAtletas = async () => {
-    const { data } = await supabase.from('atletas').select('*').order('nome');
-    if (data) onAtualizarAtletas(data as Atleta[]);
+    const { data } = await supabase.from('atletas').select('*');
+    if (data) {
+      const listaOrdenada = (data as Atleta[]).sort((a, b) => {
+        const pesoA = PESO_POSICAO[a.posicao] ?? 99;
+        const pesoB = PESO_POSICAO[b.posicao] ?? 99;
+        if (pesoA !== pesoB) return pesoA - pesoB;
+        return a.nome.localeCompare(b.nome, 'pt-PT');
+      });
+      onAtualizarAtletas(listaOrdenada);
+    }
   };
 
   const adicionarAtleta = async (e: React.FormEvent) => {
@@ -101,6 +116,14 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
     return Array.from(grupos.entries());
   };
 
+  // Ordenação tática do relatório na página inicial
+  const relatorioOrdenado = [...relatorio].sort((a, b) => {
+    const pesoA = PESO_POSICAO[a.posicao] ?? 99;
+    const pesoB = PESO_POSICAO[b.posicao] ?? 99;
+    if (pesoA !== pesoB) return pesoA - pesoB;
+    return a.nome.localeCompare(b.nome, 'pt-PT');
+  });
+
   const inputStyle = { padding: '8px 10px', fontSize: '0.9em', border: '1px solid #cbd5e1', borderRadius: '4px', flex: '1 1 120px' };
 
   return (
@@ -112,7 +135,10 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
             <form onSubmit={adicionarAtleta} style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
               <input type="text" placeholder="Nome" value={novoNome} onChange={(e) => setNovoNome(e.target.value)} required style={inputStyle} />
               <select value={novaPosicao} onChange={(e) => setNovaPosicao(e.target.value)} style={inputStyle}>
-                <option>Guarda-Redes</option><option>Defesa</option><option>Médio</option><option>Avançada</option>
+                <option value="Guarda-Redes">Guarda-Redes</option>
+                <option value="Defesa">Defesa</option>
+                <option value="Médio">Médio</option>
+                <option value="Avançada">Avançada</option>
               </select>
               <button type="submit" style={{ padding: '8px 15px', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Adicionar</button>
             </form>
@@ -123,7 +149,9 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
             <form onSubmit={adicionarEvento} style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
               <input type="date" value={novaData} onChange={(e) => setNovaData(e.target.value)} required style={inputStyle} />
               <select value={novoTipo} onChange={(e) => setNovoTipo(e.target.value)} style={inputStyle}>
-                <option>Treino</option><option>Jogo (Oficial)</option><option>Jogo (Treino)</option>
+                <option>Treino</option>
+                <option>Jogo (Oficial)</option>
+                <option>Jogo (Treino)</option>
               </select>
               {novoTipo.includes('Jogo') && <input type="text" placeholder="Adversário" value={novoAdversario} onChange={(e) => setNovoAdversario(e.target.value)} required style={inputStyle} />}
               <button type="submit" style={{ padding: '8px 15px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', flex: '1 1 100%' }}>Criar Evento</button>
@@ -161,9 +189,9 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
         ))}
       </div>
 
-      {/* Classificação Geral */}
+      {/* Plantel e Médias */}
       <div>
-        <h2 style={{ color: '#0f172a', borderBottom: '2px solid #e2e8f0', paddingBottom: '10px', margin: '0 0 15px 0', fontSize: '1.4em', textAlign: 'center' }}>🏆 Classificação Geral</h2>
+        <h2 style={{ color: '#0f172a', borderBottom: '2px solid #e2e8f0', paddingBottom: '10px', margin: '0 0 15px 0', fontSize: '1.4em', textAlign: 'center' }}>👥 Plantel e Médias</h2>
         <div style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead style={{ backgroundColor: '#f8fafc' }}>
@@ -175,7 +203,7 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
               </tr>
             </thead>
             <tbody>
-              {relatorio.map(atleta => (
+              {relatorioOrdenado.map(atleta => (
                 <tr key={atleta.id}>
                   <td style={{ padding: '12px 15px', borderBottom: '1px solid #f1f5f9', fontWeight: '500', color: '#1e293b', whiteSpace: 'nowrap' }}>{atleta.nome}</td>
                   <td style={{ padding: '12px 15px', borderBottom: '1px solid #f1f5f9', color: '#64748b' }}>{atleta.posicao}</td>
