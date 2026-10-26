@@ -14,13 +14,16 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
   const [relatorio, setRelatorio] = useState<AtletaRelatorio[]>([]);
   const [eventos, setEventos] = useState<Evento[]>([]);
 
-  // Estados para Edição Temporária de Atleta no Dashboard
+  // Estados para Filtro do Calendário
+  const [filtroMes, setFiltroMes] = useState(new Date().getMonth() + 1);
+  const [filtroAno, setFiltroAno] = useState(new Date().getFullYear());
+
+  // Estados para Edição Temporária no Dashboard
   const [editandoAtleta, setEditandoAtleta] = useState<string | null>(null);
   const [novoNumero, setNovoNumero] = useState('');
   const [novoNome, setNovoNome] = useState('');
   const [novaPosicao, setNovaPosicao] = useState('Guarda-Redes');
 
-  // Estados para Edição Temporária de Evento no Dashboard
   const [editandoEvento, setEditandoEvento] = useState<string | null>(null);
   const [novaData, setNovaData] = useState('');
   const [novoTipo, setNovoTipo] = useState('Treino');
@@ -108,8 +111,16 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
   };
 
   const agruparEventosPorSemana = () => {
+    // 1. Filtrar os eventos pelo Mês e Ano selecionados
+    const eventosFiltrados = eventos.filter(ev => {
+      if (!ev.data) return false;
+      const [ano, mes] = ev.data.split('-');
+      return parseInt(mes) === filtroMes && parseInt(ano) === filtroAno;
+    });
+
+    // 2. Agrupar os eventos filtrados
     const grupos = new Map<string, Evento[]>();
-    eventos.forEach(evento => {
+    eventosFiltrados.forEach(evento => {
       const d = new Date(evento.data);
       const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
       const dayNum = date.getUTCDay() || 7;
@@ -120,6 +131,7 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
       if (!grupos.has(chave)) grupos.set(chave, []);
       grupos.get(chave)!.push(evento);
     });
+    
     grupos.forEach(lista => lista.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime()));
     return Array.from(grupos.entries());
   };
@@ -132,10 +144,10 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
   });
 
   const inputStyle = { padding: '8px 10px', fontSize: '0.9em', border: '1px solid #cbd5e1', borderRadius: '4px', flex: '1 1 120px' };
+  const eventosAgrupados = agruparEventosPorSemana();
 
   return (
     <>
-      {/* Formulários Condicionais de Edição Rápida */}
       {user.perfil === 'admin' && editandoEvento && (
         <div style={{ padding: '20px', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '30px', border: '2px solid #3b82f6' }}>
           <h3 style={{ margin: '0 0 15px 0', color: '#1e293b' }}>✏️ Atualizar Evento</h3>
@@ -168,32 +180,54 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
       )}
 
       <div style={{ marginBottom: '40px' }}>
-        <h2 style={{ color: '#0f172a', borderBottom: '2px solid #e2e8f0', paddingBottom: '10px', margin: '0 0 20px 0', fontSize: '1.4em', textAlign: 'center' }}>📅 Calendário</h2>
-        {eventos.length === 0 ? <p style={{ textAlign: 'center', color: '#64748b' }}>Sem eventos registados.</p> : agruparEventosPorSemana().map(([semana, lista]) => (
-          <div key={semana} style={{ marginBottom: '25px' }}>
-            <h4 style={{ color: '#475569', fontSize: '1em', borderBottom: '1px solid #cbd5e1', paddingBottom: '5px', marginBottom: '15px', textAlign: 'center' }}>{semana}</h4>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '15px' }}>
-              {lista.map(ev => (
-                <div key={ev.id} style={{ backgroundColor: 'white', borderLeft: `4px solid ${ev.tipo.includes('Jogo') ? '#ef4444' : '#10b981'}`, padding: '15px', borderRadius: '6px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div style={{ fontWeight: 'bold', color: '#1e293b', fontSize: '1.05em' }}>{new Date(ev.data).toLocaleDateString('pt-PT')}</div>
-                      {user.perfil === 'admin' && (
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <button type="button" onClick={() => iniciarEdicaoEvento(ev)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.1em', padding: '0', color: '#f59e0b' }} title="Editar Evento">✏️</button>
-                          <button type="button" onClick={() => removerEvento(ev.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.1em', padding: '0', color: '#ef4444' }} title="Apagar Evento">🗑️</button>
-                        </div>
-                      )}
-                    </div>
-                    <div style={{ color: ev.tipo.includes('Jogo') ? '#ef4444' : '#10b981', fontSize: '0.9em', fontWeight: 'bold', marginTop: '6px' }}>{ev.tipo}</div>
-                    {ev.adversario && <div style={{ fontSize: '0.85em', color: '#64748b', marginTop: '6px' }}>🆚 {ev.adversario}</div>}
-                  </div>
-                  <button type="button" onClick={() => onSelecionarEvento(ev)} style={{ width: '100%', marginTop: '15px', padding: '8px', backgroundColor: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' }}>Ver Notas</button>
-                </div>
-              ))}
-            </div>
+        <h2 style={{ color: '#0f172a', borderBottom: '2px solid #e2e8f0', paddingBottom: '10px', margin: '0 0 15px 0', fontSize: '1.4em', textAlign: 'center' }}>📅 Calendário</h2>
+        
+        {/* Filtro de Mês e Ano */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '20px' }}>
+          <select value={filtroMes} onChange={(e) => setFiltroMes(Number(e.target.value))} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', backgroundColor: 'white', outline: 'none', cursor: 'pointer', fontWeight: '500' }}>
+            <option value={1}>Janeiro</option><option value={2}>Fevereiro</option><option value={3}>Março</option>
+            <option value={4}>Abril</option><option value={5}>Maio</option><option value={6}>Junho</option>
+            <option value={7}>Julho</option><option value={8}>Agosto</option><option value={9}>Setembro</option>
+            <option value={10}>Outubro</option><option value={11}>Novembro</option><option value={12}>Dezembro</option>
+          </select>
+          <select value={filtroAno} onChange={(e) => setFiltroAno(Number(e.target.value))} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', backgroundColor: 'white', outline: 'none', cursor: 'pointer', fontWeight: '500' }}>
+            {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 2 + i).map(ano => (
+              <option key={ano} value={ano}>{ano}</option>
+            ))}
+          </select>
+        </div>
+
+        {eventosAgrupados.length === 0 ? (
+          <div style={{ textAlign: 'center', color: '#64748b', padding: '20px', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            Sem eventos registados para este mês.
           </div>
-        ))}
+        ) : (
+          eventosAgrupados.map(([semana, lista]) => (
+            <div key={semana} style={{ marginBottom: '25px' }}>
+              <h4 style={{ color: '#475569', fontSize: '1em', borderBottom: '1px solid #cbd5e1', paddingBottom: '5px', marginBottom: '15px', textAlign: 'center' }}>{semana}</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '15px' }}>
+                {lista.map(ev => (
+                  <div key={ev.id} style={{ backgroundColor: 'white', borderLeft: `4px solid ${ev.tipo.includes('Jogo') ? '#ef4444' : '#10b981'}`, padding: '15px', borderRadius: '6px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div style={{ fontWeight: 'bold', color: '#1e293b', fontSize: '1.05em' }}>{new Date(ev.data).toLocaleDateString('pt-PT')}</div>
+                        {user.perfil === 'admin' && (
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button type="button" onClick={() => iniciarEdicaoEvento(ev)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.1em', padding: '0', color: '#f59e0b' }} title="Editar Evento">✏️</button>
+                            <button type="button" onClick={() => removerEvento(ev.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.1em', padding: '0', color: '#ef4444' }} title="Apagar Evento">🗑️</button>
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ color: ev.tipo.includes('Jogo') ? '#ef4444' : '#10b981', fontSize: '0.9em', fontWeight: 'bold', marginTop: '6px' }}>{ev.tipo}</div>
+                      {ev.adversario && <div style={{ fontSize: '0.85em', color: '#64748b', marginTop: '6px' }}>🆚 {ev.adversario}</div>}
+                    </div>
+                    <button type="button" onClick={() => onSelecionarEvento(ev)} style={{ width: '100%', marginTop: '15px', padding: '8px', backgroundColor: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' }}>Ver Notas</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       <div>
