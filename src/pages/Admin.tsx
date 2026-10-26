@@ -29,11 +29,16 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
   const [novaPosicao, setNovaPosicao] = useState('Guarda-Redes');
   const [editandoAtleta, setEditandoAtleta] = useState<string | null>(null);
 
-  // Formulário Evento
+  // Formulário Evento Individual
   const [novaData, setNovaData] = useState('');
   const [novoTipo, setNovoTipo] = useState('Treino');
   const [novoAdversario, setNovoAdversario] = useState('');
   const [editandoEvento, setEditandoEvento] = useState<string | null>(null);
+
+  // Gerador Automático Mensal
+  const [mesGerador, setMesGerador] = useState(new Date().getMonth() + 1);
+  const [anoGerador, setAnoGerador] = useState(new Date().getFullYear());
+  const [gerando, setGerando] = useState(false);
 
   useEffect(() => {
     carregarDados();
@@ -102,7 +107,7 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
     if (window.confirm('Apagar atleta e histórico de notas?')) { await supabase.from('atletas').delete().eq('id', id); fetchAtletas(); }
   };
 
-  // --- Lógica Eventos ---
+  // --- Lógica Eventos (Individuais) ---
   const salvarEvento = async (e: React.FormEvent) => {
     e.preventDefault();
     if (novoTipo.includes('Jogo') && !novoAdversario.trim()) return alert('Indique o adversário.');
@@ -116,6 +121,44 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
   };
   const removerEvento = async (id: string) => {
     if (window.confirm('Apagar evento e avaliações associadas?')) { await supabase.from('eventos').delete().eq('id', id); fetchEventos(); }
+  };
+
+  // --- Lógica do Gerador Automático Mensal ---
+  const gerarEventosMensais = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!window.confirm(`Deseja gerar automaticamente os treinos (Seg, Ter, Qui) e jogos (Sáb) para o mês ${mesGerador}/${anoGerador}?`)) return;
+    
+    setGerando(true);
+    const novosEventos = [];
+    const diasNoMes = new Date(anoGerador, mesGerador, 0).getDate();
+
+    for (let dia = 1; dia <= diasNoMes; dia++) {
+      // Usar UTC para evitar problemas de fuso horário que alteram o dia da semana
+      const dataAtual = new Date(Date.UTC(anoGerador, mesGerador - 1, dia));
+      const diaSemana = dataAtual.getUTCDay(); // 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sab
+      
+      const dataString = dataAtual.toISOString().split('T')[0];
+
+      // Segunda(1), Terça(2) ou Quinta(4) = Treino
+      if (diaSemana === 1 || diaSemana === 2 || diaSemana === 4) {
+        novosEventos.push({ data: dataString, tipo: 'Treino', adversario: null });
+      } 
+      // Sábado(6) = Jogo (Oficial)
+      else if (diaSemana === 6) {
+        novosEventos.push({ data: dataString, tipo: 'Jogo (Oficial)', adversario: 'A Definir' });
+      }
+    }
+
+    if (novosEventos.length > 0) {
+      const { error } = await supabase.from('eventos').insert(novosEventos);
+      if (!error) {
+        alert(`${novosEventos.length} eventos criados com sucesso!`);
+        fetchEventos();
+      } else {
+        alert('Erro ao guardar os eventos automáticos.');
+      }
+    }
+    setGerando(false);
   };
 
   const inputStyle = { padding: '8px 10px', fontSize: '0.9em', border: '1px solid #cbd5e1', borderRadius: '4px', flex: '1 1 140px' };
@@ -178,7 +221,9 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
       {/* 3. EVENTOS */}
       <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: editandoEvento ? '2px solid #3b82f6' : 'none' }}>
         <h3 style={{ color: '#0f172a', margin: '0 0 15px 0' }}>📅 {editandoEvento ? 'Editar Evento' : 'Gestão de Eventos'}</h3>
-        <form onSubmit={salvarEvento} style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #e2e8f0' }}>
+        
+        {/* Formulário Individual */}
+        <form onSubmit={salvarEvento} style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
           <input type="date" value={novaData} onChange={(e) => setNovaData(e.target.value)} required style={inputStyle} />
           <select value={novoTipo} onChange={(e) => setNovoTipo(e.target.value)} style={inputStyle}>
             <option>Treino</option>
@@ -186,10 +231,31 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
             <option>Jogo (Treino)</option>
           </select>
           {novoTipo.includes('Jogo') && <input type="text" placeholder="Adversário" value={novoAdversario} onChange={(e) => setNovoAdversario(e.target.value)} required style={inputStyle} />}
-          <button type="submit" style={{ padding: '8px 15px', backgroundColor: editandoEvento ? '#f59e0b' : '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>{editandoEvento ? 'Atualizar' : 'Criar Evento'}</button>
+          <button type="submit" style={{ padding: '8px 15px', backgroundColor: editandoEvento ? '#f59e0b' : '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>{editandoEvento ? 'Atualizar' : 'Criar Evento Único'}</button>
           {editandoEvento && <button type="button" onClick={() => {setEditandoEvento(null); setNovaData(''); setNovoAdversario('');}} style={{ padding: '8px 15px', backgroundColor: '#64748b', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancelar</button>}
         </form>
-        <div style={{ overflowX: 'auto' }}>
+
+        {/* Bloco de Geração Automática */}
+        {!editandoEvento && (
+          <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #e2e8f0' }}>
+            <h4 style={{ color: '#0f172a', margin: '0 0 5px 0' }}>⚡ Gerador de Calendário Mensal</h4>
+            <p style={{ fontSize: '0.85em', color: '#64748b', margin: '0 0 15px 0' }}>Cria automaticamente Treinos à Seg, Ter e Qui, e Jogos ao Sáb.</p>
+            <form onSubmit={gerarEventosMensais} style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '20px' }}>
+              <select value={mesGerador} onChange={(e) => setMesGerador(Number(e.target.value))} style={inputStyle}>
+                <option value={1}>Janeiro</option><option value={2}>Fevereiro</option><option value={3}>Março</option>
+                <option value={4}>Abril</option><option value={5}>Maio</option><option value={6}>Junho</option>
+                <option value={7}>Julho</option><option value={8}>Agosto</option><option value={9}>Setembro</option>
+                <option value={10}>Outubro</option><option value={11}>Novembro</option><option value={12}>Dezembro</option>
+              </select>
+              <input type="number" min="2024" max="2030" value={anoGerador} onChange={(e) => setAnoGerador(Number(e.target.value))} style={{ ...inputStyle, flex: '0 1 100px' }} />
+              <button type="submit" disabled={gerando} style={{ padding: '8px 15px', backgroundColor: '#8b5cf6', color: 'white', border: 'none', borderRadius: '4px', cursor: gerando ? 'not-allowed' : 'pointer' }}>
+                {gerando ? 'A Gerar...' : 'Gerar Mês Completo'}
+              </button>
+            </form>
+          </div>
+        )}
+
+        <div style={{ overflowX: 'auto', borderTop: '1px solid #e2e8f0', paddingTop: '15px' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9em' }}>
             <thead>
               <tr>
