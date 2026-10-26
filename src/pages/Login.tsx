@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../supabase';
-import { Utilizador } from '../types';
+import type { Utilizador } from '../types';
 
 interface LoginProps {
   nomeClube: string;

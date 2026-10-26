@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
-import { Atleta, AtletaRelatorio, Evento, Utilizador } from '../types';
+import type { Atleta, AtletaRelatorio, Evento, Utilizador } from '../types';
 
 interface DashboardProps {
   user: Utilizador;

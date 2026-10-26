@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
-import { Evento, Atleta, Utilizador, AvaliacaoInput } from '../types';
+import type { Evento, Atleta, Utilizador, AvaliacaoInput } from '../types';
 
 interface AvaliacaoProps {
   evento: Evento;

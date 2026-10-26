@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabase';
-import { Utilizador, Evento, Atleta } from './types';
+import type { Utilizador, Evento, Atleta } from './types';
 
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
