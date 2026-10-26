@@ -86,24 +86,37 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
     if (!atletaAcesso) return;
 
     const userExistente = utilizadores.find(u => u.atleta_id === atletaAcesso.id);
+    const usernameFinal = loginAtletaUsername.trim().toLowerCase();
+    const senhaFinal = loginAtletaSenha.trim();
 
     if (userExistente) {
       // Atualizar credenciais
-      const updateData: any = { username: loginAtletaUsername };
-      if (loginAtletaSenha.trim()) updateData.senha = loginAtletaSenha;
-      await supabase.from('utilizadores').update(updateData).eq('id', userExistente.id);
+      const updateData: any = { username: usernameFinal };
+      if (senhaFinal) updateData.senha = senhaFinal;
+      
+      const { error } = await supabase.from('utilizadores').update(updateData).eq('id', userExistente.id);
+      if (error) {
+        alert('Erro ao atualizar: ' + error.message);
+        return;
+      }
       alert('Credenciais da atleta atualizadas com sucesso!');
     } else {
       // Criar nova conta para a atleta
-      if (!loginAtletaSenha.trim()) return alert('Insira uma palavra-passe inicial.');
-      await supabase.from('utilizadores').insert([{
-        username: loginAtletaUsername,
-        senha: loginAtletaSenha,
+      if (!senhaFinal) return alert('Insira uma palavra-passe inicial.');
+
+      const { error } = await supabase.from('utilizadores').insert([{
+        username: usernameFinal,
+        senha: senhaFinal,
         perfil: 'atleta',
         nome: atletaAcesso.nome,
         atleta_id: atletaAcesso.id,
         acesso_relatorios: false
       }]);
+
+      if (error) {
+        alert('Erro ao criar conta: ' + error.message);
+        return;
+      }
       alert('Acesso criado com sucesso para a atleta!');
     }
 
