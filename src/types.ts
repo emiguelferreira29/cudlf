@@ -16,6 +16,7 @@ export interface Utilizador {
   senha?: string;
   perfil: string;
   nome: string;
+  acesso_relatorios?: boolean;
 }
 
 export interface Evento {

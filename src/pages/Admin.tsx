@@ -11,47 +11,37 @@ const PESO_POSICAO: Record<string, number> = { 'Guarda-Redes': 1, 'Defesa': 2, '
 
 export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) {
   const [inputNome, setInputNome] = useState(nomeClube);
-  
-  // Listas de Dados
   const [utilizadores, setUtilizadores] = useState<Utilizador[]>([]);
   const [atletas, setAtletas] = useState<Atleta[]>([]);
   const [eventos, setEventos] = useState<Evento[]>([]);
 
-  // Formulário User
+  // Formulários
   const [novoUserNome, setNovoUserNome] = useState('');
   const [novoUserUsername, setNovoUserUsername] = useState('');
   const [novoUserSenha, setNovoUserSenha] = useState('');
   const [novoUserPerfil, setNovoUserPerfil] = useState('treinador');
+  const [novoUserAcesso, setNovoUserAcesso] = useState(true);
 
-  // Formulário Atleta
   const [novoNumero, setNovoNumero] = useState('');
   const [novoNomeAtleta, setNovoNomeAtleta] = useState('');
   const [novaPosicao, setNovaPosicao] = useState('Guarda-Redes');
   const [editandoAtleta, setEditandoAtleta] = useState<string | null>(null);
 
-  // Formulário Evento Individual
   const [novaData, setNovaData] = useState('');
   const [novoTipo, setNovoTipo] = useState('Treino');
   const [novoAdversario, setNovoAdversario] = useState('');
   const [editandoEvento, setEditandoEvento] = useState<string | null>(null);
 
-  // Gerador Automático Mensal
   const [mesGerador, setMesGerador] = useState(new Date().getMonth() + 1);
   const [anoGerador, setAnoGerador] = useState(new Date().getFullYear());
   const [gerando, setGerando] = useState(false);
 
-  useEffect(() => {
-    carregarDados();
-  }, []);
+  useEffect(() => { carregarDados(); }, []);
 
-  const carregarDados = () => {
-    fetchUsers();
-    fetchAtletas();
-    fetchEventos();
-  };
+  const carregarDados = () => { fetchUsers(); fetchAtletas(); fetchEventos(); };
 
   const fetchUsers = async () => {
-    const { data } = await supabase.from('utilizadores').select('id, username, perfil, nome');
+    const { data } = await supabase.from('utilizadores').select('id, username, perfil, nome, acesso_relatorios');
     if (data) setUtilizadores(data as Utilizador[]);
   };
 
@@ -76,16 +66,30 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
   // --- Lógica Utilizadores ---
   const adicionarUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { error } = await supabase.from('utilizadores').insert([{ username: novoUserUsername, senha: novoUserSenha, perfil: novoUserPerfil, nome: novoUserNome }]);
+    const { error } = await supabase.from('utilizadores').insert([{ 
+      username: novoUserUsername, 
+      senha: novoUserSenha, 
+      perfil: novoUserPerfil, 
+      nome: novoUserNome,
+      acesso_relatorios: novoUserAcesso
+    }]);
     if (!error) { setNovoUserNome(''); setNovoUserUsername(''); setNovoUserSenha(''); fetchUsers(); }
   };
+  
   const removerUser = async (id: string) => {
     if (window.confirm('Eliminar utilizador permanentemente?')) { await supabase.from('utilizadores').delete().eq('id', id); fetchUsers(); }
   };
+  
   const mudarSenha = async (id: string) => {
     const nova = window.prompt('Nova senha:');
     if (nova && nova.trim() !== '') { await supabase.from('utilizadores').update({ senha: nova }).eq('id', id); alert('Atualizada.'); }
   };
+
+  const alternarAcessoRelatorio = async (id: string, estadoAtual: boolean) => {
+    await supabase.from('utilizadores').update({ acesso_relatorios: !estadoAtual }).eq('id', id);
+    fetchUsers();
+  };
+
   const guardarClube = async (e: React.FormEvent) => {
     e.preventDefault();
     const { error } = await supabase.from('configuracoes').update({ valor: inputNome }).eq('chave', 'nome_clube');
@@ -100,14 +104,10 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
     else await supabase.from('atletas').insert([dados]);
     setNovoNumero(''); setNovoNomeAtleta(''); setNovaPosicao('Guarda-Redes'); setEditandoAtleta(null); fetchAtletas();
   };
-  const iniciarEdicaoAtleta = (a: Atleta) => {
-    setEditandoAtleta(a.id); setNovoNumero(a.numero?.toString() || ''); setNovoNomeAtleta(a.nome); setNovaPosicao(a.posicao);
-  };
-  const removerAtleta = async (id: string) => {
-    if (window.confirm('Apagar atleta e histórico de notas?')) { await supabase.from('atletas').delete().eq('id', id); fetchAtletas(); }
-  };
+  const iniciarEdicaoAtleta = (a: Atleta) => { setEditandoAtleta(a.id); setNovoNumero(a.numero?.toString() || ''); setNovoNomeAtleta(a.nome); setNovaPosicao(a.posicao); };
+  const removerAtleta = async (id: string) => { if (window.confirm('Apagar atleta?')) { await supabase.from('atletas').delete().eq('id', id); fetchAtletas(); } };
 
-  // --- Lógica Eventos (Individuais) ---
+  // --- Lógica Eventos ---
   const salvarEvento = async (e: React.FormEvent) => {
     e.preventDefault();
     if (novoTipo.includes('Jogo') && !novoAdversario.trim()) return alert('Indique o adversário.');
@@ -116,48 +116,23 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
     else await supabase.from('eventos').insert([dados]);
     setNovaData(''); setNovoAdversario(''); setNovoTipo('Treino'); setEditandoEvento(null); fetchEventos();
   };
-  const iniciarEdicaoEvento = (ev: Evento) => {
-    setEditandoEvento(ev.id); setNovaData(ev.data); setNovoTipo(ev.tipo); setNovoAdversario(ev.adversario || '');
-  };
-  const removerEvento = async (id: string) => {
-    if (window.confirm('Apagar evento e avaliações associadas?')) { await supabase.from('eventos').delete().eq('id', id); fetchEventos(); }
-  };
+  const iniciarEdicaoEvento = (ev: Evento) => { setEditandoEvento(ev.id); setNovaData(ev.data); setNovoTipo(ev.tipo); setNovoAdversario(ev.adversario || ''); };
+  const removerEvento = async (id: string) => { if (window.confirm('Apagar evento?')) { await supabase.from('eventos').delete().eq('id', id); fetchEventos(); } };
 
-  // --- Lógica do Gerador Automático Mensal ---
   const gerarEventosMensais = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!window.confirm(`Deseja gerar automaticamente os treinos (Seg, Ter, Qui) e jogos (Sáb) para o mês ${mesGerador}/${anoGerador}?`)) return;
-    
+    if (!window.confirm(`Gerar eventos para ${mesGerador}/${anoGerador}?`)) return;
     setGerando(true);
     const novosEventos = [];
     const diasNoMes = new Date(anoGerador, mesGerador, 0).getDate();
-
     for (let dia = 1; dia <= diasNoMes; dia++) {
-      // Usar UTC para evitar problemas de fuso horário que alteram o dia da semana
       const dataAtual = new Date(Date.UTC(anoGerador, mesGerador - 1, dia));
-      const diaSemana = dataAtual.getUTCDay(); // 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sab
-      
+      const diaSemana = dataAtual.getUTCDay();
       const dataString = dataAtual.toISOString().split('T')[0];
-
-      // Segunda(1), Terça(2) ou Quinta(4) = Treino
-      if (diaSemana === 1 || diaSemana === 2 || diaSemana === 4) {
-        novosEventos.push({ data: dataString, tipo: 'Treino', adversario: null });
-      } 
-      // Sábado(6) = Jogo (Oficial)
-      else if (diaSemana === 6) {
-        novosEventos.push({ data: dataString, tipo: 'Jogo (Oficial)', adversario: 'A Definir' });
-      }
+      if (diaSemana === 1 || diaSemana === 2 || diaSemana === 4) novosEventos.push({ data: dataString, tipo: 'Treino', adversario: null });
+      else if (diaSemana === 6) novosEventos.push({ data: dataString, tipo: 'Jogo (Oficial)', adversario: 'A Definir' });
     }
-
-    if (novosEventos.length > 0) {
-      const { error } = await supabase.from('eventos').insert(novosEventos);
-      if (!error) {
-        alert(`${novosEventos.length} eventos criados com sucesso!`);
-        fetchEventos();
-      } else {
-        alert('Erro ao guardar os eventos automáticos.');
-      }
-    }
+    if (novosEventos.length > 0) { await supabase.from('eventos').insert(novosEventos); alert('Criados!'); fetchEventos(); }
     setGerando(false);
   };
 
@@ -167,7 +142,7 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
       
-      {/* 1. CLUBE */}
+      {/* CLUBE */}
       <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
         <h3 style={{ color: '#0f172a', margin: '0 0 15px 0' }}>⚙️ Definições do Clube</h3>
         <form onSubmit={guardarClube} style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
@@ -176,17 +151,15 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
         </form>
       </div>
 
-      {/* 2. PLANTEL */}
+      {/* PLANTEL */}
       <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: editandoAtleta ? '2px solid #f59e0b' : 'none' }}>
         <h3 style={{ color: '#0f172a', margin: '0 0 15px 0' }}>👥 {editandoAtleta ? 'Editar Atleta' : 'Gestão de Plantel'}</h3>
         <form onSubmit={salvarAtleta} style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #e2e8f0' }}>
           <input type="number" placeholder="Nº" value={novoNumero} onChange={(e) => setNovoNumero(e.target.value)} style={{ ...inputStyle, flex: '0 1 70px' }} />
           <input type="text" placeholder="Nome da Atleta" value={novoNomeAtleta} onChange={(e) => setNovoNomeAtleta(e.target.value)} required style={inputStyle} />
           <select value={novaPosicao} onChange={(e) => setNovaPosicao(e.target.value)} style={inputStyle}>
-            <option value="Guarda-Redes">Guarda-Redes</option>
-            <option value="Defesa">Defesa</option>
-            <option value="Médio">Médio</option>
-            <option value="Avançada">Avançada</option>
+            <option value="Guarda-Redes">Guarda-Redes</option><option value="Defesa">Defesa</option>
+            <option value="Médio">Médio</option><option value="Avançada">Avançada</option>
           </select>
           <button type="submit" style={{ padding: '8px 15px', backgroundColor: editandoAtleta ? '#f59e0b' : '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>{editandoAtleta ? 'Atualizar' : 'Adicionar Atleta'}</button>
           {editandoAtleta && <button type="button" onClick={() => {setEditandoAtleta(null); setNovoNumero(''); setNovoNomeAtleta('');}} style={{ padding: '8px 15px', backgroundColor: '#64748b', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancelar</button>}
@@ -218,24 +191,19 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
         </div>
       </div>
 
-      {/* 3. EVENTOS */}
+      {/* EVENTOS */}
       <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: editandoEvento ? '2px solid #3b82f6' : 'none' }}>
         <h3 style={{ color: '#0f172a', margin: '0 0 15px 0' }}>📅 {editandoEvento ? 'Editar Evento' : 'Gestão de Eventos'}</h3>
-        
-        {/* Formulário Individual */}
         <form onSubmit={salvarEvento} style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
           <input type="date" value={novaData} onChange={(e) => setNovaData(e.target.value)} required style={inputStyle} />
           <select value={novoTipo} onChange={(e) => setNovoTipo(e.target.value)} style={inputStyle}>
-            <option>Treino</option>
-            <option>Jogo (Oficial)</option>
-            <option>Jogo (Treino)</option>
+            <option>Treino</option><option>Jogo (Oficial)</option><option>Jogo (Treino)</option>
           </select>
           {novoTipo.includes('Jogo') && <input type="text" placeholder="Adversário" value={novoAdversario} onChange={(e) => setNovoAdversario(e.target.value)} required style={inputStyle} />}
           <button type="submit" style={{ padding: '8px 15px', backgroundColor: editandoEvento ? '#f59e0b' : '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>{editandoEvento ? 'Atualizar' : 'Criar Evento Único'}</button>
           {editandoEvento && <button type="button" onClick={() => {setEditandoEvento(null); setNovaData(''); setNovoAdversario('');}} style={{ padding: '8px 15px', backgroundColor: '#64748b', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancelar</button>}
         </form>
 
-        {/* Bloco de Geração Automática */}
         {!editandoEvento && (
           <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #e2e8f0' }}>
             <h4 style={{ color: '#0f172a', margin: '0 0 5px 0' }}>⚡ Gerador de Calendário Mensal</h4>
@@ -249,12 +217,11 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
               </select>
               <input type="number" min="2024" max="2030" value={anoGerador} onChange={(e) => setAnoGerador(Number(e.target.value))} style={{ ...inputStyle, flex: '0 1 100px' }} />
               <button type="submit" disabled={gerando} style={{ padding: '8px 15px', backgroundColor: '#8b5cf6', color: 'white', border: 'none', borderRadius: '4px', cursor: gerando ? 'not-allowed' : 'pointer' }}>
-                {gerando ? 'A Gerar...' : 'Gerar Mês Completo'}
+                {gerando ? 'A Gerar...' : 'Gerar Mês'}
               </button>
             </form>
           </div>
         )}
-
         <div style={{ overflowX: 'auto', borderTop: '1px solid #e2e8f0', paddingTop: '15px' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9em' }}>
             <thead>
@@ -268,10 +235,7 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
               {eventos.map(ev => (
                 <tr key={ev.id}>
                   <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', fontWeight: 'bold' }}>{new Date(ev.data).toLocaleDateString('pt-PT')}</td>
-                  <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', color: '#64748b' }}>
-                    <span style={{ color: ev.tipo.includes('Jogo') ? '#ef4444' : '#10b981', fontWeight: '500' }}>{ev.tipo}</span> 
-                    {ev.adversario && ` 🆚 ${ev.adversario}`}
-                  </td>
+                  <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', color: '#64748b' }}><span style={{ color: ev.tipo.includes('Jogo') ? '#ef4444' : '#10b981', fontWeight: '500' }}>{ev.tipo}</span> {ev.adversario && ` 🆚 ${ev.adversario}`}</td>
                   <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: '5px' }}>
                     <button onClick={() => iniciarEdicaoEvento(ev)} style={{ ...btnAcao, backgroundColor: '#fef3c7', color: '#d97706' }}>Editar</button>
                     <button onClick={() => removerEvento(ev.id)} style={{ ...btnAcao, backgroundColor: '#fee2e2', color: '#ef4444' }}>Remover</button>
@@ -283,9 +247,9 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
         </div>
       </div>
 
-      {/* 4. UTILIZADORES */}
+      {/* UTILIZADORES E PERMISSÕES */}
       <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-        <h3 style={{ color: '#0f172a', margin: '0 0 15px 0' }}>🔒 Gestão de Utilizadores</h3>
+        <h3 style={{ color: '#0f172a', margin: '0 0 15px 0' }}>🔒 Gestão de Utilizadores e Acessos</h3>
         <form onSubmit={adicionarUser} style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #e2e8f0' }}>
           <input type="text" placeholder="Nome Completo" value={novoUserNome} onChange={(e) => setNovoUserNome(e.target.value)} required style={inputStyle} />
           <input type="text" placeholder="Username" value={novoUserUsername} onChange={(e) => setNovoUserUsername(e.target.value)} required style={inputStyle} />
@@ -293,25 +257,47 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
           <select value={novoUserPerfil} onChange={(e) => setNovoUserPerfil(e.target.value)} style={inputStyle}>
             <option value="treinador">Treinador</option><option value="admin">Administrador</option>
           </select>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.9em', color: '#334155', cursor: 'pointer', flex: '1 1 100%' }}>
+            <input type="checkbox" checked={novoUserAcesso} onChange={(e) => setNovoUserAcesso(e.target.value === 'on')} />
+            Dar acesso à página de Relatórios
+          </label>
           <button type="submit" style={{ padding: '8px 15px', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', flex: '1 1 100%' }}>Adicionar Utilizador</button>
         </form>
+        
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9em' }}>
             <thead>
               <tr>
                 <th style={{ padding: '8px', borderBottom: '2px solid #e2e8f0', color: '#475569' }}>Nome</th>
-                <th style={{ padding: '8px', borderBottom: '2px solid #e2e8f0', color: '#475569' }}>Username</th>
+                <th style={{ padding: '8px', borderBottom: '2px solid #e2e8f0', color: '#475569', textAlign: 'center' }}>Vê Relatórios?</th>
                 <th style={{ padding: '8px', borderBottom: '2px solid #e2e8f0', color: '#475569' }}>Ações</th>
               </tr>
             </thead>
             <tbody>
               {utilizadores.map(u => (
                 <tr key={u.id}>
-                  <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>{u.nome} <span style={{ fontSize: '0.8em', color: '#94a3b8' }}>({u.perfil})</span></td>
-                  <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9' }}>{u.username}</td>
+                  <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                    {u.nome} <span style={{ fontSize: '0.8em', color: '#94a3b8' }}>({u.perfil})</span>
+                  </td>
+                  <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', textAlign: 'center' }}>
+                    <button 
+                      onClick={() => alternarAcessoRelatorio(u.id, u.acesso_relatorios ?? false)} 
+                      style={{ 
+                        ...btnAcao, 
+                        backgroundColor: (u.acesso_relatorios ?? false) ? '#dcfce7' : '#fee2e2', 
+                        color: (u.acesso_relatorios ?? false) ? '#16a34a' : '#ef4444',
+                        fontWeight: 'bold',
+                        border: `1px solid ${(u.acesso_relatorios ?? false) ? '#bbf7d0' : '#fecaca'}`
+                      }}
+                    >
+                      {(u.acesso_relatorios ?? false) ? 'Sim (Desativar)' : 'Não (Ativar)'}
+                    </button>
+                  </td>
                   <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: '5px' }}>
-                    <button onClick={() => mudarSenha(u.id)} style={{ ...btnAcao, backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1' }}>Senha</button>
-                    <button onClick={() => removerUser(u.id)} style={{ ...btnAcao, backgroundColor: '#fee2e2', color: '#ef4444' }}>Remover</button>
+                    <button onClick={() => mudarSenha(u.id)} style={{ ...btnAcao, backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1' }}>Mudar Senha</button>
+                    {u.perfil !== 'admin' && (
+                      <button onClick={() => removerUser(u.id)} style={{ ...btnAcao, backgroundColor: '#fee2e2', color: '#ef4444' }}>Remover</button>
+                    )}
                   </td>
                 </tr>
               ))}

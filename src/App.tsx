@@ -35,8 +35,21 @@ export default function App() {
 
   useEffect(() => {
     fetchConfiguracoes();
-    if (user) fetchAtletas();
-  }, [user]);
+    if (user) {
+      fetchAtletas();
+      // Atualiza os dados do utilizador caso o admin tenha alterado as permissões a meio da sessão
+      supabase.from('utilizadores').select('*').eq('id', user.id).single().then(({ data }) => {
+        if (data) {
+          setUser(data);
+          localStorage.setItem('clube_user', JSON.stringify(data));
+          // Expulsa da página de relatórios se lhe tiverem tirado o acesso
+          if (view === 'relatorio' && data.perfil !== 'admin' && !data.acesso_relatorios) {
+            irParaDashboard();
+          }
+        }
+      });
+    }
+  }, []);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -118,6 +131,9 @@ export default function App() {
     fontSize: '0.85em'
   });
 
+  // A regra de negócio: Vê relatórios se for Admin OU se tiver acesso_relatorios = true
+  const podeVerRelatorios = user.perfil === 'admin' || user.acesso_relatorios;
+
   return (
     <div style={{ fontFamily: 'system-ui, sans-serif', backgroundColor: '#f8fafc', minHeight: '100vh', fontSize: '0.95em' }}>
       <header className="no-print" style={{ backgroundColor: '#0f172a', padding: '15px 20px', color: 'white', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '15px', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>
@@ -125,10 +141,15 @@ export default function App() {
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <span style={{ fontSize: '0.85em', color: '#cbd5e1', marginRight: '5px' }}>{user.nome.split(' ')[0]}</span>
           <button onClick={irParaDashboard} style={btnNavStyle(view === 'dashboard')}>Painel</button>
-          <button onClick={() => irParaView('relatorio')} style={btnNavStyle(view === 'relatorio')}>Relatórios</button>
+          
+          {podeVerRelatorios && (
+            <button onClick={() => irParaView('relatorio')} style={btnNavStyle(view === 'relatorio')}>Relatórios</button>
+          )}
+
           {user.perfil === 'admin' && (
             <button onClick={() => irParaView('admin')} style={btnNavStyle(view === 'admin')}>Admin</button>
           )}
+          
           <button onClick={fazerLogout} style={{ background: '#dc2626', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85em' }}>Sair</button>
         </div>
       </header>
@@ -152,7 +173,7 @@ export default function App() {
           />
         )}
 
-        {view === 'relatorio' && (
+        {view === 'relatorio' && podeVerRelatorios && (
           <Relatorio atletas={atletas} />
         )}
 
