@@ -13,11 +13,8 @@ interface AvaliacaoProps {
 const PESO_POSICAO: Record<string, number> = { 'Guarda-Redes': 1, 'Defesa': 2, 'Médio': 3, 'Avançada': 4 };
 
 export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGuardado }: AvaliacaoProps) {
-  // Estados para Treinador
   const [avaliacoes, setAvaliacoes] = useState<Record<string, AvaliacaoInput>>({});
   const [salvando, setSalvando] = useState(false);
-
-  // Estados para Admin
   const [avaliacoesGerais, setAvaliacoesGerais] = useState<any[]>([]);
   const [treinadoresEnvolvidos, setTreinadoresEnvolvidos] = useState<Record<string, string>>({});
 
@@ -29,7 +26,6 @@ export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGua
     }
   }, [evento.id]);
 
-  // Lógica Treinador
   const carregarNotasExistentes = async () => {
     const { data } = await supabase.from('avaliacoes').select('*').eq('evento_id', evento.id).eq('treinador_id', user.id);
     if (data) {
@@ -41,13 +37,12 @@ export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGua
     }
   };
 
-  // Lógica Admin (ver todas as notas)
   const carregarTodasAsNotasAdmin = async () => {
     const { data: avalData } = await supabase.from('avaliacoes').select('*, treinador:utilizadores(id, nome)').eq('evento_id', evento.id);
     if (avalData) {
       setAvaliacoesGerais(avalData);
       const treinadores: Record<string, string> = {};
-      avalData.forEach((av: any) => { if (av.treinador) treinadores[av.treinador.id] = av.treinador.nome; });
+      avalData.forEach((av: any) => { if (av.treinador) treinadores[av.treinador.id] = av.treinador.nome.split(' ')[0]; });
       setTreinadoresEnvolvidos(treinadores);
     }
   };
@@ -102,28 +97,29 @@ export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGua
               <tr>
                 <th style={{ padding: '12px 15px', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>Atleta</th>
                 {Object.values(treinadoresEnvolvidos).map(nomeTreinador => (
-                  <th key={nomeTreinador} style={{ padding: '12px 15px', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>{nomeTreinador}</th>
+                  <th key={nomeTreinador} style={{ padding: '12px 15px', borderBottom: '1px solid #e2e8f0', color: '#475569', textAlign: 'center' }}>{nomeTreinador}</th>
                 ))}
-                <th style={{ padding: '12px 15px', borderBottom: '1px solid #e2e8f0', color: '#0f172a', fontWeight: 'bold' }}>Média Evento</th>
+                <th style={{ padding: '12px 15px', borderBottom: '1px solid #e2e8f0', color: '#0f172a', fontWeight: 'bold', textAlign: 'center' }}>Média Evento</th>
               </tr>
             </thead>
             <tbody>
               {atletasOrdenadas.map(atleta => {
-                const avaliacoesDaAtleta = avaliacoesGerais.filter(a => a.atleta_id === atleta.id);
-                if (avaliacoesDaAtleta.length === 0) return null; // Esconde quem não foi avaliado
+                const avaliacoesDaAtleta = avaliacoesGerais.filter(a => a.atleta_id === atleta.id && (a.nota !== null || a.motivo === 'Falta'));
+                const avalTodasDaAtleta = avaliacoesGerais.filter(a => a.atleta_id === atleta.id);
+                if (avalTodasDaAtleta.length === 0) return null;
 
-                const notasValidas = avaliacoesDaAtleta.filter(a => a.nota !== null).map(a => parseFloat(a.nota));
+                const notasValidas = avaliacoesDaAtleta.map(a => a.nota !== null ? parseFloat(a.nota) : 0);
                 const media = notasValidas.length > 0 ? (notasValidas.reduce((sum, val) => sum + val, 0) / notasValidas.length).toFixed(2) : '-';
 
                 return (
                   <tr key={atleta.id}>
                     <td style={{ padding: '12px 15px', borderBottom: '1px solid #f1f5f9', fontWeight: '500', color: '#1e293b' }}>{atleta.numero ? `${atleta.numero} - ` : ''}{atleta.nome}</td>
                     {Object.keys(treinadoresEnvolvidos).map(tId => {
-                      const aval = avaliacoesDaAtleta.find(a => a.treinador_id === tId);
+                      const aval = avalTodasDaAtleta.find(a => a.treinador_id === tId);
                       const display = aval ? (aval.nota !== null ? aval.nota : aval.motivo) : '-';
-                      return <td key={tId} style={{ padding: '12px 15px', borderBottom: '1px solid #f1f5f9', color: '#64748b' }}>{display}</td>;
+                      return <td key={tId} style={{ padding: '12px 15px', borderBottom: '1px solid #f1f5f9', color: '#64748b', textAlign: 'center' }}>{display}</td>;
                     })}
-                    <td style={{ padding: '12px 15px', borderBottom: '1px solid #f1f5f9', fontWeight: 'bold', color: '#f59e0b' }}>{media}</td>
+                    <td style={{ padding: '12px 15px', borderBottom: '1px solid #f1f5f9', fontWeight: 'bold', color: '#f59e0b', textAlign: 'center' }}>{media}</td>
                   </tr>
                 );
               })}
@@ -132,13 +128,12 @@ export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGua
         </div>
       ) : (
         <>
-          {/* O layout do treinador permanece igual */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '25px' }}>
             {atletasOrdenadas.map(atleta => {
               const aval = avaliacoes[atleta.id];
               const temRegisto = aval && (aval.nota.trim() !== '' || aval.semPontuacao);
               return (
-                <div key={atleta.id} style={{ backgroundColor: 'white', padding: '14px 18px', borderRadius: '8px', boxShadow: '0 1px 2px rgba(0,0,0,0.06)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px', borderLeft: temRegisto ? (aval.semPontuacao ? '4px solid #ef4444' : '4px solid #10b981') : '4px solid #cbd5e1' }}>
+                <div key={atleta.id} style={{ backgroundColor: 'white', padding: '14px 18px', borderRadius: '8px', boxShadow: '0 1px 2px rgba(0,0,0,0.06)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px', borderLeft: temRegisto ? (aval.semPontuacao && aval.motivo === 'Falta' ? '4px solid #ef4444' : (aval.semPontuacao ? '4px solid #f59e0b' : '4px solid #10b981')) : '4px solid #cbd5e1' }}>
                   <div>
                     <div style={{ fontWeight: '600', color: '#0f172a', fontSize: '1em' }}>{atleta.numero ? `${atleta.numero} - ` : ''}{atleta.nome}</div>
                     <div style={{ fontSize: '0.85em', color: '#64748b', marginTop: '2px' }}>{atleta.posicao}</div>
@@ -148,8 +143,12 @@ export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGua
                       <input type="checkbox" checked={aval?.semPontuacao || false} onChange={(e) => atualizarInput(atleta.id, 'semPontuacao', e.target.checked)} style={{ width: '16px', height: '16px', cursor: 'pointer' }}/> Sem nota
                     </label>
                     {aval?.semPontuacao ? (
-                      <select value={aval.motivo || 'Falta'} onChange={(e) => atualizarInput(atleta.id, 'motivo', e.target.value)} style={{ padding: '8px 12px', borderRadius: '6px', border: '2px solid #ef4444', backgroundColor: '#ffffff', color: '#991b1b', fontSize: '0.9em', fontWeight: '600' }}>
-                        <option value="Falta">Falta</option><option value="Lesionada">Lesionada</option><option value="Doente">Doente</option>
+                      <select value={aval.motivo || 'Falta'} onChange={(e) => atualizarInput(atleta.id, 'motivo', e.target.value)} style={{ padding: '8px 12px', borderRadius: '6px', border: '2px solid #cbd5e1', backgroundColor: '#ffffff', color: '#334155', fontSize: '0.9em', fontWeight: '500' }}>
+                        <option value="Falta">Falta (Conta 0)</option>
+                        <option value="Doente">Doente</option>
+                        <option value="Lesionada">Lesionada</option>
+                        <option value="Não aplicável">Não aplicável</option>
+                        {evento.tipo.includes('Jogo') && <option value="Não convocada">Não convocada</option>}
                       </select>
                     ) : (
                       <input type="number" min="0" max="10" step="0.1" placeholder="0 - 10" value={aval?.nota || ''} onChange={(e) => atualizarInput(atleta.id, 'nota', e.target.value)} style={{ width: '85px', padding: '8px 10px', borderRadius: '6px', border: '2px solid #94a3b8', backgroundColor: '#ffffff', color: '#0f172a', fontSize: '0.95em', fontWeight: 'bold', textAlign: 'center' }} />

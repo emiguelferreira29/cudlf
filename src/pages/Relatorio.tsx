@@ -9,7 +9,6 @@ interface RelatorioProps {
 export default function Relatorio({ atletas }: RelatorioProps) {
   const [avaliacoes, setAvaliacoes] = useState<any[]>([]);
   const [treinadores, setTreinadores] = useState<{id: string, nome: string}[]>([]);
-  const [eventosPassados, setEventosPassados] = useState<any[]>([]);
   const [tipoView, setTipoView] = useState<'global' | 'individual'>('global');
   
   const [atletaSelecionada, setAtletaSelecionada] = useState<string>('');
@@ -26,17 +25,9 @@ export default function Relatorio({ atletas }: RelatorioProps) {
   }, [atletas]);
 
   const carregarDados = async () => {
-    const hoje = new Date().toISOString().split('T')[0];
-    
-    // Contabiliza apenas os eventos que já aconteceram
-    const { data: evData } = await supabase.from('eventos').select('id, data');
-    if (evData) {
-      setEventosPassados(evData.filter(e => e.data <= hoje));
-    }
-
     const { data: avData } = await supabase
       .from('avaliacoes')
-      .select('nota, atleta_id, treinador_id, eventos(data), treinador:utilizadores(nome)');
+      .select('nota, motivo, atleta_id, treinador_id, eventos(data), treinador:utilizadores(nome)');
     
     if (avData) {
       setAvaliacoes(avData);
@@ -56,18 +47,20 @@ export default function Relatorio({ atletas }: RelatorioProps) {
     return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
   };
 
-  const divisorTotal = eventosPassados.length > 0 ? eventosPassados.length : 1;
-
   const atletasComMedias = atletas.map(atleta => {
-    const notasAtleta = avaliacoes.filter(av => av.atleta_id === atleta.id && av.nota !== null);
+    // Apenas selecionamos as notas numéricas OU quando o motivo for "Falta"
+    const avaliacoesValidas = avaliacoes.filter(av => 
+      av.atleta_id === atleta.id && (av.nota !== null || av.motivo === 'Falta')
+    );
     
-    const globalNotas = notasAtleta.map(av => parseFloat(av.nota));
-    const mediaGlobal = globalNotas.length > 0 ? globalNotas.reduce((a, b) => a + b, 0) / divisorTotal : null;
+    const somaGlobal = avaliacoesValidas.reduce((sum, av) => sum + (av.nota !== null ? parseFloat(av.nota) : 0), 0);
+    const mediaGlobal = avaliacoesValidas.length > 0 ? somaGlobal / avaliacoesValidas.length : null;
 
     const mediasTreinador: Record<string, number | null> = {};
     treinadores.forEach(t => {
-      const notasT = notasAtleta.filter(av => av.treinador_id === t.id).map(av => parseFloat(av.nota));
-      mediasTreinador[t.id] = notasT.length > 0 ? notasT.reduce((a, b) => a + b, 0) / divisorTotal : null;
+      const avsTreinador = avaliacoesValidas.filter(av => av.treinador_id === t.id);
+      const somaTreinador = avsTreinador.reduce((sum, av) => sum + (av.nota !== null ? parseFloat(av.nota) : 0), 0);
+      mediasTreinador[t.id] = avsTreinador.length > 0 ? somaTreinador / avsTreinador.length : null;
     });
 
     return { ...atleta, mediaGlobal, mediasTreinador };
@@ -84,27 +77,22 @@ export default function Relatorio({ atletas }: RelatorioProps) {
     const anoAtual = hoje.getFullYear();
     const semanaAtual = getWeekNumber(hoje);
 
-    const eventosDoPeriodo = eventosPassados.filter(e => {
-      const d = new Date(e.data);
+    // Filtra apenas as que importam para a média (Nota e Falta) no período escolhido
+    const avaliacoesValidasPeriodo = avaliacoes.filter(av => {
+      if (av.atleta_id !== atletaSelecionada || !av.eventos) return false;
+      if (av.nota === null && av.motivo !== 'Falta') return false; // Ignora as Doenças, Lesões, etc
+      
+      const d = new Date(av.eventos.data);
       if (periodo === 'mes') return (d.getMonth() + 1) === mesAtual && d.getFullYear() === anoAtual;
       return getWeekNumber(d) === semanaAtual && d.getFullYear() === anoAtual;
     });
 
-    const divisorInd = eventosDoPeriodo.length > 0 ? eventosDoPeriodo.length : 1;
-
-    const notasDoPeriodo = avaliacoes.filter(av => {
-      if (av.atleta_id !== atletaSelecionada || av.nota === null || !av.eventos) return false;
-      const d = new Date(av.eventos.data);
-      if (periodo === 'mes') return (d.getMonth() + 1) === mesAtual && d.getFullYear() === anoAtual;
-      return getWeekNumber(d) === semanaAtual && d.getFullYear() === anoAtual;
-    }).map(av => parseFloat(av.nota));
-
-    if (notasDoPeriodo.length === 0) {
-      return `Ainda não existem notas tuas registadas nesta ${periodo === 'semana' ? 'semana' : 'mês'}.`;
+    if (avaliacoesValidasPeriodo.length === 0) {
+      return `Ainda não tens pontuações avaliáveis registadas nesta ${periodo === 'semana' ? 'semana' : 'mês'}.`;
     }
 
-    const soma = notasDoPeriodo.reduce((a, b) => a + b, 0);
-    const media = (soma / divisorInd).toFixed(1);
+    const soma = avaliacoesValidasPeriodo.reduce((acc, av) => acc + (av.nota !== null ? parseFloat(av.nota) : 0), 0);
+    const media = (soma / avaliacoesValidasPeriodo.length).toFixed(1);
     const textoPeriodo = periodo === 'semana' ? 'desta semana' : 'deste mês';
     
     return `A média da tua pontuação ${textoPeriodo} é de ${media}`;
@@ -160,11 +148,11 @@ export default function Relatorio({ atletas }: RelatorioProps) {
                   </td>
                   {treinadores.map(t => (
                     <td key={t.id} style={{ padding: '10px', borderBottom: '1px solid #f1f5f9', color: '#64748b', textAlign: 'center' }}>
-                      {atleta.mediasTreinador[t.id] ? atleta.mediasTreinador[t.id]?.toFixed(2) : '-'}
+                      {atleta.mediasTreinador[t.id] !== null ? atleta.mediasTreinador[t.id]?.toFixed(2) : '-'}
                     </td>
                   ))}
                   <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9', fontWeight: 'bold', color: '#f59e0b', textAlign: 'center', fontSize: '1.1em' }}>
-                    {atleta.mediaGlobal ? atleta.mediaGlobal.toFixed(2) : '-'}
+                    {atleta.mediaGlobal !== null ? atleta.mediaGlobal.toFixed(2) : '-'}
                   </td>
                 </tr>
               ))}
