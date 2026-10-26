@@ -14,9 +14,10 @@ export interface Utilizador {
   id: string;
   username: string;
   senha?: string;
-  perfil: string;
+  perfil: string; // 'admin' | 'treinador' | 'atleta'
   nome: string;
   acesso_relatorios?: boolean;
+  atleta_id?: string;
 }
 
 export interface Evento {

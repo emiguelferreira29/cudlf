@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import AvaliacaoEvento from './pages/AvaliacaoEvento';
 import Admin from './pages/Admin';
 import Relatorio from './pages/Relatorio';
+import PainelAtleta from './pages/PainelAtleta';
 
 export default function App() {
   const [user, setUser] = useState<Utilizador | null>(() => {
@@ -19,12 +20,18 @@ export default function App() {
     try { return salvo ? JSON.parse(salvo) : null; } catch { return null; }
   });
 
-  const [view, setView] = useState<'login' | 'dashboard' | 'admin' | 'evento' | 'relatorio'>(() => {
+  const [view, setView] = useState<'login' | 'dashboard' | 'admin' | 'evento' | 'relatorio' | 'atleta'>(() => {
     const utilizadorSalvo = localStorage.getItem('clube_user');
     const viewSalva = localStorage.getItem('clube_view') as any;
     const eventoSalvo = localStorage.getItem('clube_evento');
 
     if (!utilizadorSalvo) return 'login';
+    
+    try {
+      const u = JSON.parse(utilizadorSalvo);
+      if (u.perfil === 'atleta') return 'atleta';
+    } catch {}
+
     if (viewSalva === 'evento' && eventoSalvo) return 'evento';
     if (['dashboard', 'admin', 'relatorio'].includes(viewSalva)) return viewSalva;
     return 'dashboard';
@@ -35,7 +42,7 @@ export default function App() {
 
   useEffect(() => {
     fetchConfiguracoes();
-    if (user) {
+    if (user && user.perfil !== 'atleta') {
       fetchAtletas();
       supabase.from('utilizadores').select('*').eq('id', user.id).single().then(({ data }) => {
         if (data) {
@@ -51,7 +58,7 @@ export default function App() {
 
   useEffect(() => {
     const handlePopState = () => {
-      if (user && view !== 'dashboard') {
+      if (user && user.perfil !== 'atleta' && view !== 'dashboard') {
         setEventoSelecionado(null);
         setView('dashboard');
         localStorage.setItem('clube_view', 'dashboard');
@@ -102,10 +109,16 @@ export default function App() {
 
   const loginSucesso = (u: Utilizador) => {
     setUser(u);
-    setView('dashboard');
     localStorage.setItem('clube_user', JSON.stringify(u));
-    localStorage.setItem('clube_view', 'dashboard');
-    fetchAtletas();
+
+    if (u.perfil === 'atleta') {
+      setView('atleta');
+      localStorage.setItem('clube_view', 'atleta');
+    } else {
+      setView('dashboard');
+      localStorage.setItem('clube_view', 'dashboard');
+      fetchAtletas();
+    }
   };
 
   const fazerLogout = () => {
@@ -135,24 +148,40 @@ export default function App() {
     <div style={{ fontFamily: 'system-ui, sans-serif', backgroundColor: '#f8fafc', minHeight: '100vh', fontSize: '0.95em' }}>
       <header className="no-print" style={{ backgroundColor: '#0f172a', padding: '15px 20px', color: 'white', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '15px', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>
         <div style={{ fontWeight: 'bold', fontSize: '1.2em' }}>⚽ {nomeClube}</div>
+        
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <span style={{ fontSize: '0.85em', color: '#cbd5e1', marginRight: '5px' }}>{user.nome.split(' ')[0]}</span>
-          <button onClick={irParaDashboard} style={btnNavStyle(view === 'dashboard')}>Painel</button>
           
-          {podeVerRelatorios && (
-            <button onClick={() => irParaView('relatorio')} style={btnNavStyle(view === 'relatorio')}>Relatórios</button>
+          {/* Menu apenas para Treinadores e Direção */}
+          {user.perfil !== 'atleta' && (
+            <>
+              <button onClick={irParaDashboard} style={btnNavStyle(view === 'dashboard')}>Painel</button>
+              
+              {podeVerRelatorios && (
+                <button onClick={() => irParaView('relatorio')} style={btnNavStyle(view === 'relatorio')}>Relatórios</button>
+              )}
+
+              {user.perfil === 'admin' && (
+                <button onClick={() => irParaView('admin')} style={btnNavStyle(view === 'admin')}>Admin</button>
+              )}
+            </>
           )}
 
-          {user.perfil === 'admin' && (
-            <button onClick={() => irParaView('admin')} style={btnNavStyle(view === 'admin')}>Admin</button>
-          )}
-          
-          <button onClick={fazerLogout} style={{ background: '#dc2626', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85em' }}>Sair</button>
+          <button onClick={fazerLogout} style={{ background: '#dc2626', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85em' }}>
+            Sair
+          </button>
         </div>
       </header>
 
       <main style={{ maxWidth: '1000px', margin: '0 auto', padding: '20px' }}>
-        {view === 'dashboard' && (
+        
+        {/* ÁREA EXCLUSIVA DA ATLETA */}
+        {user.perfil === 'atleta' && (
+          <PainelAtleta user={user} />
+        )}
+
+        {/* ÁREA DA EQUIPA TÉCNICA E ADMIN */}
+        {user.perfil !== 'atleta' && view === 'dashboard' && (
           <Dashboard 
             user={user} 
             onSelecionarEvento={selecionarEvento}
@@ -160,7 +189,7 @@ export default function App() {
           />
         )}
 
-        {view === 'evento' && eventoSelecionado && (
+        {user.perfil !== 'atleta' && view === 'evento' && eventoSelecionado && (
           <AvaliacaoEvento 
             evento={eventoSelecionado}
             user={user}
@@ -171,11 +200,11 @@ export default function App() {
           />
         )}
 
-        {view === 'relatorio' && podeVerRelatorios && (
+        {user.perfil !== 'atleta' && view === 'relatorio' && podeVerRelatorios && (
           <Relatorio atletas={atletas} />
         )}
 
-        {view === 'admin' && user.perfil === 'admin' && (
+        {user.perfil === 'admin' && view === 'admin' && (
           <Admin 
             nomeClube={nomeClube}
             onNomeClubeAtualizado={fetchConfiguracoes}

@@ -15,6 +15,11 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
   const [atletas, setAtletas] = useState<Atleta[]>([]);
   const [eventos, setEventos] = useState<Evento[]>([]);
 
+  // Modal de Acesso para Atleta
+  const [atletaAcesso, setAtletaAcesso] = useState<Atleta | null>(null);
+  const [loginAtletaUsername, setLoginAtletaUsername] = useState('');
+  const [loginAtletaSenha, setLoginAtletaSenha] = useState('');
+
   // Formulários
   const [novoUserNome, setNovoUserNome] = useState('');
   const [novoUserUsername, setNovoUserUsername] = useState('');
@@ -41,7 +46,7 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
   const carregarDados = () => { fetchUsers(); fetchAtletas(); fetchEventos(); };
 
   const fetchUsers = async () => {
-    const { data } = await supabase.from('utilizadores').select('id, username, perfil, nome, acesso_relatorios');
+    const { data } = await supabase.from('utilizadores').select('id, username, perfil, nome, acesso_relatorios, atleta_id');
     if (data) setUtilizadores(data as Utilizador[]);
   };
 
@@ -61,6 +66,49 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
   const fetchEventos = async () => {
     const { data } = await supabase.from('eventos').select('*').order('data', { ascending: false });
     if (data) setEventos(data as Evento[]);
+  };
+
+  // --- Lógica de Acesso da Atleta ---
+  const abrirModalAcesso = (a: Atleta) => {
+    setAtletaAcesso(a);
+    const userExistente = utilizadores.find(u => u.atleta_id === a.id);
+    if (userExistente) {
+      setLoginAtletaUsername(userExistente.username);
+    } else {
+      // Sugestão de username: primeiro nome em minúsculas
+      setLoginAtletaUsername(a.nome.toLowerCase().split(' ')[0] + (a.numero ? a.numero : ''));
+    }
+    setLoginAtletaSenha('');
+  };
+
+  const guardarAcessoAtleta = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!atletaAcesso) return;
+
+    const userExistente = utilizadores.find(u => u.atleta_id === atletaAcesso.id);
+
+    if (userExistente) {
+      // Atualizar credenciais
+      const updateData: any = { username: loginAtletaUsername };
+      if (loginAtletaSenha.trim()) updateData.senha = loginAtletaSenha;
+      await supabase.from('utilizadores').update(updateData).eq('id', userExistente.id);
+      alert('Credenciais da atleta atualizadas com sucesso!');
+    } else {
+      // Criar nova conta para a atleta
+      if (!loginAtletaSenha.trim()) return alert('Insira uma palavra-passe inicial.');
+      await supabase.from('utilizadores').insert([{
+        username: loginAtletaUsername,
+        senha: loginAtletaSenha,
+        perfil: 'atleta',
+        nome: atletaAcesso.nome,
+        atleta_id: atletaAcesso.id,
+        acesso_relatorios: false
+      }]);
+      alert('Acesso criado com sucesso para a atleta!');
+    }
+
+    setAtletaAcesso(null);
+    fetchUsers();
   };
 
   // --- Lógica Utilizadores ---
@@ -142,6 +190,44 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
       
+      {/* MODAL PARA DEFINIR ACESSO DA ATLETA */}
+      {atletaAcesso && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15,23,42,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
+          <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '10px', maxWidth: '400px', width: '100%', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
+            <h3 style={{ margin: '0 0 8px 0', color: '#0f172a' }}>🔑 Acesso de Atleta</h3>
+            <p style={{ color: '#64748b', fontSize: '0.9em', margin: '0 0 15px 0' }}>
+              Defina as credenciais para <strong>{atletaAcesso.nome}</strong> aceder à sua pontuação individual.
+            </p>
+            <form onSubmit={guardarAcessoAtleta} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label style={{ fontSize: '0.8em', color: '#475569', fontWeight: 'bold' }}>Username de Login:</label>
+                <input 
+                  type="text" 
+                  value={loginAtletaUsername} 
+                  onChange={(e) => setLoginAtletaUsername(e.target.value.toLowerCase().trim())} 
+                  required 
+                  style={{ ...inputStyle, width: '100%', marginTop: '4px' }} 
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.8em', color: '#475569', fontWeight: 'bold' }}>Palavra-passe:</label>
+                <input 
+                  type="text" 
+                  placeholder="Nova senha..." 
+                  value={loginAtletaSenha} 
+                  onChange={(e) => setLoginAtletaSenha(e.target.value)} 
+                  style={{ ...inputStyle, width: '100%', marginTop: '4px' }} 
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <button type="button" onClick={() => setAtletaAcesso(null)} style={{ flex: '1', padding: '10px', backgroundColor: '#e2e8f0', color: '#334155', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' }}>Cancelar</button>
+                <button type="submit" style={{ flex: '1', padding: '10px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' }}>Guardar Acesso</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* CLUBE */}
       <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
         <h3 style={{ color: '#0f172a', margin: '0 0 15px 0' }}>⚙️ Definições do Clube</h3>
@@ -151,7 +237,7 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
         </form>
       </div>
 
-      {/* PLANTEL */}
+      {/* PLANTEL COM BOTÃO DE ACESSO */}
       <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: editandoAtleta ? '2px solid #f59e0b' : 'none' }}>
         <h3 style={{ color: '#0f172a', margin: '0 0 15px 0' }}>👥 {editandoAtleta ? 'Editar Atleta' : 'Gestão de Plantel'}</h3>
         <form onSubmit={salvarAtleta} style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #e2e8f0' }}>
@@ -175,17 +261,30 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
               </tr>
             </thead>
             <tbody>
-              {atletas.map(a => (
-                <tr key={a.id}>
-                  <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', color: '#64748b' }}>{a.numero || '-'}</td>
-                  <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', fontWeight: '500' }}>{a.nome}</td>
-                  <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', color: '#64748b' }}>{a.posicao}</td>
-                  <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: '5px' }}>
-                    <button onClick={() => iniciarEdicaoAtleta(a)} style={{ ...btnAcao, backgroundColor: '#fef3c7', color: '#d97706' }}>Editar</button>
-                    <button onClick={() => removerAtleta(a.id)} style={{ ...btnAcao, backgroundColor: '#fee2e2', color: '#ef4444' }}>Remover</button>
-                  </td>
-                </tr>
-              ))}
+              {atletas.map(a => {
+                const temLogin = utilizadores.some(u => u.atleta_id === a.id);
+                return (
+                  <tr key={a.id}>
+                    <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', color: '#64748b' }}>{a.numero || '-'}</td>
+                    <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', fontWeight: '500' }}>
+                      {a.nome} {temLogin && <span title="Tem login criado" style={{ fontSize: '0.85em' }}>📱</span>}
+                    </td>
+                    <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', color: '#64748b' }}>{a.posicao}</td>
+                    <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: '5px' }}>
+                      <button 
+                        type="button" 
+                        onClick={() => abrirModalAcesso(a)} 
+                        style={{ ...btnAcao, backgroundColor: temLogin ? '#dbeafe' : '#f1f5f9', color: temLogin ? '#1d4ed8' : '#475569', fontWeight: '600' }}
+                        title="Definir Password de Acesso"
+                      >
+                        🔑 Acesso
+                      </button>
+                      <button onClick={() => iniciarEdicaoAtleta(a)} style={{ ...btnAcao, backgroundColor: '#fef3c7', color: '#d97706' }}>Editar</button>
+                      <button onClick={() => removerAtleta(a.id)} style={{ ...btnAcao, backgroundColor: '#fee2e2', color: '#ef4444' }}>Remover</button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -247,9 +346,9 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
         </div>
       </div>
 
-      {/* UTILIZADORES E PERMISSÕES */}
+      {/* UTILIZADORES */}
       <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-        <h3 style={{ color: '#0f172a', margin: '0 0 15px 0' }}>🔒 Gestão de Utilizadores e Acessos</h3>
+        <h3 style={{ color: '#0f172a', margin: '0 0 15px 0' }}>🔒 Equipa Técnica e Direção</h3>
         <form onSubmit={adicionarUser} style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #e2e8f0' }}>
           <input type="text" placeholder="Nome Completo" value={novoUserNome} onChange={(e) => setNovoUserNome(e.target.value)} required style={inputStyle} />
           <input type="text" placeholder="Username" value={novoUserUsername} onChange={(e) => setNovoUserUsername(e.target.value)} required style={inputStyle} />
@@ -274,7 +373,7 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
               </tr>
             </thead>
             <tbody>
-              {utilizadores.map(u => (
+              {utilizadores.filter(u => u.perfil !== 'atleta').map(u => (
                 <tr key={u.id}>
                   <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
                     {u.nome} <span style={{ fontSize: '0.8em', color: '#94a3b8' }}>({u.perfil})</span>
