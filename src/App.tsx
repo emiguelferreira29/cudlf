@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import AvaliacaoEvento from './pages/AvaliacaoEvento';
 import Admin from './pages/Admin';
+import Relatorio from './pages/Relatorio';
 
 export default function App() {
   const [user, setUser] = useState<Utilizador | null>(() => {
@@ -18,14 +19,14 @@ export default function App() {
     try { return salvo ? JSON.parse(salvo) : null; } catch { return null; }
   });
 
-  const [view, setView] = useState<'login' | 'dashboard' | 'admin' | 'evento'>(() => {
+  const [view, setView] = useState<'login' | 'dashboard' | 'admin' | 'evento' | 'relatorio'>(() => {
     const utilizadorSalvo = localStorage.getItem('clube_user');
-    const viewSalva = localStorage.getItem('clube_view');
+    const viewSalva = localStorage.getItem('clube_view') as any;
     const eventoSalvo = localStorage.getItem('clube_evento');
 
     if (!utilizadorSalvo) return 'login';
     if (viewSalva === 'evento' && eventoSalvo) return 'evento';
-    if (viewSalva === 'admin') return 'admin';
+    if (['dashboard', 'admin', 'relatorio'].includes(viewSalva)) return viewSalva;
     return 'dashboard';
   });
 
@@ -37,10 +38,8 @@ export default function App() {
     if (user) fetchAtletas();
   }, [user]);
 
-  // --- Otimização PWA: Gestão do Botão Voltar (Hardware/Gestos no Telemóvel) ---
   useEffect(() => {
     const handlePopState = () => {
-      // Se o utilizador usar o recuo do telemóvel enquanto está fora do dashboard, nós forçamos o regresso em vez de fechar a app
       if (user && view !== 'dashboard') {
         setEventoSelecionado(null);
         setView('dashboard');
@@ -62,24 +61,23 @@ export default function App() {
     if (data) setAtletas(data as Atleta[]);
   };
 
-  // --- Navegação com History API para suportar o Back Button ---
+  const irParaView = (novaView: 'dashboard' | 'admin' | 'relatorio') => {
+    if (view !== novaView) {
+      window.history.pushState({ page: novaView }, '');
+      setView(novaView);
+      localStorage.setItem('clube_view', novaView);
+    }
+  };
+
   const irParaDashboard = () => {
     if (view !== 'dashboard') {
-      window.history.back(); // Aciona o evento popstate acima de forma natural
-      setTimeout(() => { // Fallback de segurança rápido
+      window.history.back(); 
+      setTimeout(() => {
         setView('dashboard');
         setEventoSelecionado(null);
         localStorage.setItem('clube_view', 'dashboard');
         localStorage.removeItem('clube_evento');
       }, 50);
-    }
-  };
-
-  const irParaAdmin = () => {
-    if (view !== 'admin') {
-      window.history.pushState({ page: 'admin' }, '');
-      setView('admin');
-      localStorage.setItem('clube_view', 'admin');
     }
   };
 
@@ -122,13 +120,14 @@ export default function App() {
 
   return (
     <div style={{ fontFamily: 'system-ui, sans-serif', backgroundColor: '#f8fafc', minHeight: '100vh', fontSize: '0.95em' }}>
-      <header style={{ backgroundColor: '#0f172a', padding: '15px 20px', color: 'white', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '15px', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>
+      <header className="no-print" style={{ backgroundColor: '#0f172a', padding: '15px 20px', color: 'white', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '15px', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>
         <div style={{ fontWeight: 'bold', fontSize: '1.2em' }}>⚽ {nomeClube}</div>
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <span style={{ fontSize: '0.85em', color: '#cbd5e1', marginRight: '5px' }}>{user.nome.split(' ')[0]}</span>
           <button onClick={irParaDashboard} style={btnNavStyle(view === 'dashboard')}>Painel</button>
+          <button onClick={() => irParaView('relatorio')} style={btnNavStyle(view === 'relatorio')}>Relatórios</button>
           {user.perfil === 'admin' && (
-            <button onClick={irParaAdmin} style={btnNavStyle(view === 'admin')}>Admin</button>
+            <button onClick={() => irParaView('admin')} style={btnNavStyle(view === 'admin')}>Admin</button>
           )}
           <button onClick={fazerLogout} style={{ background: '#dc2626', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85em' }}>Sair</button>
         </div>
@@ -151,6 +150,10 @@ export default function App() {
             onVoltar={irParaDashboard}
             onGuardado={irParaDashboard}
           />
+        )}
+
+        {view === 'relatorio' && (
+          <Relatorio atletas={atletas} />
         )}
 
         {view === 'admin' && user.perfil === 'admin' && (
