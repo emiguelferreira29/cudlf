@@ -20,6 +20,7 @@ interface Evento {
   id: string;
   data: string;
   tipo: string;
+  adversario?: string;
 }
 
 export default function App() {
@@ -38,6 +39,7 @@ export default function App() {
   // Estados Eventos
   const [novaData, setNovaData] = useState('');
   const [novoTipo, setNovoTipo] = useState('Treino');
+  const [novoAdversario, setNovoAdversario] = useState('');
 
   const fazerLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,12 +73,10 @@ export default function App() {
   };
 
   const fetchEventos = async () => {
-    // Traz os eventos ordenados pela data (mais recentes primeiro)
     const { data, error } = await supabase.from('eventos').select('*').order('data', { ascending: false });
     if (!error) setEventos(data as Evento[]);
   };
 
-  // --- FUNÇÕES DE ATLETAS ---
   const adicionarAtleta = async (e: React.FormEvent) => {
     e.preventDefault();
     const { error } = await supabase.from('atletas').insert([{ nome: novoNome, posicao: novaPosicao }]);
@@ -94,12 +94,24 @@ export default function App() {
     }
   };
 
-  // --- FUNÇÕES DE EVENTOS (TREINOS/JOGOS) ---
   const adicionarEvento = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { error } = await supabase.from('eventos').insert([{ data: novaData, tipo: novoTipo }]);
+    
+    // Validação extra por segurança
+    if (novoTipo.includes('Jogo') && !novoAdversario.trim()) {
+      alert('Por favor, indique o adversário.');
+      return;
+    }
+
+    const { error } = await supabase.from('eventos').insert([{ 
+      data: novaData, 
+      tipo: novoTipo,
+      adversario: novoTipo.includes('Jogo') ? novoAdversario : null
+    }]);
+
     if (!error) {
       setNovaData('');
+      setNovoAdversario('');
       fetchEventos();
     } else alert('Erro ao criar evento.');
   };
@@ -112,7 +124,6 @@ export default function App() {
     }
   };
 
-  // --- ECRÃ DE LOGIN ---
   if (!user) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#f3f4f6' }}>
@@ -133,7 +144,6 @@ export default function App() {
     );
   }
 
-  // --- PAINEL PRINCIPAL ---
   return (
     <div style={{ padding: '20px', fontFamily: 'system-ui, sans-serif', maxWidth: '800px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #3498db', paddingBottom: '10px' }}>
@@ -159,7 +169,7 @@ export default function App() {
                 <option value="Médio">Médio</option>
                 <option value="Avançada">Avançada</option>
               </select>
-              <button type="submit" style={{ padding: '8px 15px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Adicionar Atleta</button>
+              <button type="submit" style={{ padding: '8px 15px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Adicionar</button>
             </form>
           </div>
 
@@ -169,8 +179,21 @@ export default function App() {
               <input type="date" value={novaData} onChange={(e) => setNovaData(e.target.value)} required style={{ padding: '8px' }} />
               <select value={novoTipo} onChange={(e) => setNovoTipo(e.target.value)} style={{ padding: '8px' }}>
                 <option value="Treino">Treino</option>
-                <option value="Jogo">Jogo</option>
+                <option value="Jogo (Oficial)">Jogo (Oficial)</option>
+                <option value="Jogo (Treino)">Jogo (Treino)</option>
               </select>
+              
+              {/* O campo Adversário só aparece se for um Jogo */}
+              {novoTipo.includes('Jogo') && (
+                <input 
+                  type="text" 
+                  placeholder="Nome do Adversário" 
+                  value={novoAdversario} 
+                  onChange={(e) => setNovoAdversario(e.target.value)} 
+                  required 
+                  style={{ flex: '1 1 200px', padding: '8px' }} 
+                />
+              )}
               <button type="submit" style={{ padding: '8px 15px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Criar Evento</button>
             </form>
           </div>
@@ -182,11 +205,20 @@ export default function App() {
         <h2>📅 Calendário (Treinos e Jogos)</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '15px' }}>
           {eventos.length === 0 ? <p>Sem eventos agendados.</p> : eventos.map((evento) => (
-            <div key={evento.id} style={{ padding: '15px', backgroundColor: evento.tipo === 'Jogo' ? '#ffebee' : '#e8f5e9', border: `1px solid ${evento.tipo === 'Jogo' ? '#ffcdd2' : '#c8e6c9'}`, borderRadius: '8px', position: 'relative' }}>
+            <div key={evento.id} style={{ padding: '15px', backgroundColor: evento.tipo.includes('Jogo') ? '#ffebee' : '#e8f5e9', border: `1px solid ${evento.tipo.includes('Jogo') ? '#ffcdd2' : '#c8e6c9'}`, borderRadius: '8px', position: 'relative' }}>
               <div style={{ fontWeight: 'bold', fontSize: '1.1em', color: '#333' }}>
                 {new Date(evento.data).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' })}
               </div>
-              <div style={{ color: '#666', marginTop: '5px' }}>{evento.tipo}</div>
+              <div style={{ color: evento.tipo.includes('Jogo') ? '#d32f2f' : '#2e7d32', marginTop: '5px', fontWeight: 'bold' }}>
+                {evento.tipo}
+              </div>
+              
+              {/* Mostra o adversário no cartão se existir */}
+              {evento.adversario && (
+                <div style={{ marginTop: '5px', fontSize: '0.9em', color: '#555' }}>
+                  🆚 {evento.adversario}
+                </div>
+              )}
               
               {user.perfil === 'admin' && (
                 <button onClick={() => removerEvento(evento.id)} style={{ position: 'absolute', top: '10px', right: '10px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', padding: '4px 8px', fontSize: '0.7em', cursor: 'pointer' }}>
@@ -194,7 +226,6 @@ export default function App() {
                 </button>
               )}
               
-              {/* Botão para Avaliar será adicionado aqui depois */}
               <button style={{ width: '100%', marginTop: '15px', padding: '8px', backgroundColor: '#3498db', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                 Ver Notas
               </button>
@@ -203,6 +234,7 @@ export default function App() {
         </div>
       </div>
 
+      {/* Tabela de Classificação Mantida no Fundo */}
       <div style={{ marginTop: '40px' }}>
         <h2>🏆 Classificação Geral</h2>
         <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
@@ -211,7 +243,6 @@ export default function App() {
               <th style={{ padding: '12px', borderBottom: '1px solid #ddd' }}>Atleta</th>
               <th style={{ padding: '12px', borderBottom: '1px solid #ddd' }}>Posição</th>
               <th style={{ padding: '12px', borderBottom: '1px solid #ddd' }}>Média Final</th>
-              {user.perfil === 'admin' && <th style={{ padding: '12px', borderBottom: '1px solid #ddd' }}>Ações</th>}
             </tr>
           </thead>
           <tbody>
@@ -220,11 +251,6 @@ export default function App() {
                 <td style={{ padding: '12px', borderBottom: '1px solid #eee', fontWeight: 'bold' }}>{atleta.nome}</td>
                 <td style={{ padding: '12px', borderBottom: '1px solid #eee' }}>{atleta.posicao}</td>
                 <td style={{ padding: '12px', borderBottom: '1px solid #eee', color: '#e67e22', fontWeight: 'bold' }}>{atleta.media_geral || 'S/ Nota'}</td>
-                {user.perfil === 'admin' && (
-                  <td style={{ padding: '12px', borderBottom: '1px solid #eee' }}>
-                    <button onClick={() => removerAtleta(atleta.id)} style={{ padding: '5px 10px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8em' }}>Remover</button>
-                  </td>
-                )}
               </tr>
             ))}
           </tbody>
