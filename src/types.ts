@@ -24,6 +24,7 @@ export interface Evento {
   data: string;
   tipo: string;
   adversario?: string;
+  fechado?: boolean;
 }
 
 export interface AvaliacaoInput {

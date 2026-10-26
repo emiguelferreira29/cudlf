@@ -24,11 +24,9 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
   const [relatorio, setRelatorio] = useState<AtletaRelatorio[]>([]);
   const [eventos, setEventos] = useState<EventoComAvaliadores[]>([]);
 
-  // Estados para Filtro do Calendário
   const [filtroMes, setFiltroMes] = useState(new Date().getMonth() + 1);
   const [filtroAno, setFiltroAno] = useState(new Date().getFullYear());
 
-  // Estados para Edição Temporária no Dashboard
   const [editandoAtleta, setEditandoAtleta] = useState<string | null>(null);
   const [novoNumero, setNovoNumero] = useState('');
   const [novoNome, setNovoNome] = useState('');
@@ -39,9 +37,7 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
   const [novoTipo, setNovoTipo] = useState('Treino');
   const [novoAdversario, setNovoAdversario] = useState('');
 
-  useEffect(() => {
-    carregarTudo();
-  }, []);
+  useEffect(() => { carregarTudo(); }, []);
 
   const carregarTudo = () => {
     fetchRelatorio();
@@ -76,6 +72,7 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
           data: ev.data,
           tipo: ev.tipo,
           adversario: ev.adversario,
+          fechado: ev.fechado ?? false,
           avaliadores
         };
       });
@@ -96,7 +93,6 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
     }
   };
 
-  // --- Lógica de Edição/Eliminação (Apenas Admin) ---
   const iniciarEdicaoEvento = (ev: Evento) => {
     setEditandoEvento(ev.id);
     setNovaData(ev.data);
@@ -168,7 +164,6 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
     return Array.from(grupos.entries());
   };
 
-  // Ordenação decrescente pela Média Geral (atletas sem média vão para o fim)
   const relatorioOrdenado = [...relatorio].sort((a, b) => {
     const valA = a.media_geral !== null && a.media_geral !== undefined ? Number(a.media_geral) : -1;
     const valB = b.media_geral !== null && b.media_geral !== undefined ? Number(b.media_geral) : -1;
@@ -248,7 +243,9 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
                       <div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                           <div>
-                            <div style={{ fontWeight: 'bold', color: '#1e293b', fontSize: '1em' }}>{dataFormatada}</div>
+                            <div style={{ fontWeight: 'bold', color: '#1e293b', fontSize: '1em', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              {dataFormatada} {ev.fechado && <span title="Evento Fechado">🔒</span>}
+                            </div>
                             <div style={{ fontSize: '0.85em', color: '#64748b', textTransform: 'capitalize' }}>{diaSemana}</div>
                           </div>
                           {user.perfil === 'admin' && (
@@ -284,7 +281,9 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
                         )}
                       </div>
                       
-                      <button type="button" onClick={() => onSelecionarEvento(ev)} style={{ width: '100%', marginTop: '12px', padding: '8px', backgroundColor: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer', fontWeight: '500', fontSize: '0.9em' }}>Ver Notas</button>
+                      <button type="button" onClick={() => onSelecionarEvento(ev)} style={{ width: '100%', marginTop: '12px', padding: '8px', backgroundColor: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer', fontWeight: '500', fontSize: '0.9em' }}>
+                        {user.perfil === 'admin' ? 'Ver Resumo' : 'Ver Notas'}
+                      </button>
                     </div>
                   );
                 })}
