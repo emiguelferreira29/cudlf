@@ -94,7 +94,7 @@ export default function App() {
       date.setUTCDate(date.getUTCDate() + 4 - dayNum);
       const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
       const weekNo = Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-      const chave = `Sem. ${weekNo} (${date.getUTCFullYear()})`;
+      const chave = `Semana ${weekNo} (${date.getUTCFullYear()})`;
       if (!grupos.has(chave)) grupos.set(chave, []);
       grupos.get(chave)!.push(evento);
     });
@@ -124,52 +124,50 @@ export default function App() {
     if (novaSenha && novaSenha.trim() !== '') { await supabase.from('utilizadores').update({ senha: novaSenha }).eq('id', id); alert('Senha atualizada.'); }
   };
 
-  // ESTILOS GERAIS COMPACTOS
-  const inputStyle = { padding: '6px 8px', fontSize: '0.85em', border: '1px solid #cbd5e1', borderRadius: '4px', flex: '1 1 120px', minWidth: '120px' };
-  const btnStyle = { padding: '6px 12px', fontSize: '0.85em', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' };
+  const inputStyle = { padding: '8px 10px', fontSize: '0.9em', border: '1px solid #cbd5e1', borderRadius: '4px', flex: '1 1 120px', minWidth: '120px' };
+  const btnStyle = { padding: '8px 15px', fontSize: '0.9em', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' };
 
   if (view === 'login') {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f1f5f9', padding: '15px' }}>
-        <form onSubmit={fazerLogin} style={{ backgroundColor: 'white', padding: '25px 20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', width: '100%', maxWidth: '320px' }}>
-          <h3 style={{ textAlign: 'center', color: '#0f172a', marginTop: 0, marginBottom: '20px', fontSize: '1.1em' }}>{nomeClube}</h3>
-          {erroLogin && <p style={{ color: '#ef4444', textAlign: 'center', fontSize: '0.85em', margin: '0 0 10px 0' }}>{erroLogin}</p>}
-          <div style={{ marginBottom: '12px' }}>
-            <label style={{ display: 'block', fontSize: '0.8em', marginBottom: '4px', color: '#475569' }}>Utilizador</label>
+        <form onSubmit={fazerLogin} style={{ backgroundColor: 'white', padding: '30px', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', width: '100%', maxWidth: '360px' }}>
+          <h2 style={{ textAlign: 'center', color: '#0f172a', marginTop: 0, marginBottom: '25px', fontSize: '1.4em' }}>{nomeClube}</h2>
+          {erroLogin && <p style={{ color: '#ef4444', textAlign: 'center', fontSize: '0.9em', margin: '0 0 15px 0' }}>{erroLogin}</p>}
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px', color: '#475569', fontWeight: 'bold' }}>Utilizador</label>
             <input type="text" value={usernameInput} onChange={(e) => setUsernameInput(e.target.value)} style={{ ...inputStyle, width: '100%', boxSizing: 'border-box' }} required />
           </div>
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', fontSize: '0.8em', marginBottom: '4px', color: '#475569' }}>Senha</label>
+          <div style={{ marginBottom: '25px' }}>
+            <label style={{ display: 'block', fontSize: '0.9em', marginBottom: '5px', color: '#475569', fontWeight: 'bold' }}>Senha</label>
             <input type="password" value={senhaInput} onChange={(e) => setSenhaInput(e.target.value)} style={{ ...inputStyle, width: '100%', boxSizing: 'border-box' }} required />
           </div>
-          <button type="submit" style={{ ...btnStyle, width: '100%', backgroundColor: '#2563eb', padding: '8px' }}>Entrar</button>
+          <button type="submit" style={{ ...btnStyle, width: '100%', backgroundColor: '#2563eb', padding: '10px', fontSize: '1em' }}>Entrar</button>
         </form>
       </div>
     );
   }
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', backgroundColor: '#f8fafc', minHeight: '100vh', fontSize: '0.9em' }}>
-      {/* HEADER COMPACTO RESPONSIVO */}
-      <header style={{ backgroundColor: '#0f172a', padding: '10px 15px', color: 'white', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '10px', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }}>
-        <div style={{ fontWeight: 'bold', fontSize: '1em' }}>⚽ {nomeClube}</div>
-        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-          <span style={{ fontSize: '0.8em', color: '#cbd5e1', marginRight: '5px' }}>{user?.nome?.split(' ')[0]}</span>
-          <button onClick={() => setView('dashboard')} style={{ ...btnStyle, background: view === 'dashboard' ? '#334155' : 'transparent', border: '1px solid #334155', padding: '4px 8px' }}>Painel</button>
-          {user?.perfil === 'admin' && <button onClick={() => { fetchUtilizadores(); setView('admin'); }} style={{ ...btnStyle, background: view === 'admin' ? '#334155' : 'transparent', border: '1px solid #334155', padding: '4px 8px' }}>Admin</button>}
-          <button onClick={fazerLogout} style={{ ...btnStyle, background: '#dc2626', padding: '4px 8px' }}>Sair</button>
+    <div style={{ fontFamily: 'system-ui, sans-serif', backgroundColor: '#f8fafc', minHeight: '100vh', fontSize: '0.95em' }}>
+      <header style={{ backgroundColor: '#0f172a', padding: '15px 20px', color: 'white', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '15px', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>
+        <div style={{ fontWeight: 'bold', fontSize: '1.2em' }}>⚽ {nomeClube}</div>
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+          <span style={{ fontSize: '0.85em', color: '#cbd5e1', marginRight: '10px' }}>{user?.nome?.split(' ')[0]}</span>
+          <button onClick={() => setView('dashboard')} style={{ ...btnStyle, background: view === 'dashboard' ? '#334155' : 'transparent', border: '1px solid #334155', padding: '6px 12px' }}>Painel</button>
+          {user?.perfil === 'admin' && <button onClick={() => { fetchUtilizadores(); setView('admin'); }} style={{ ...btnStyle, background: view === 'admin' ? '#334155' : 'transparent', border: '1px solid #334155', padding: '6px 12px' }}>Admin</button>}
+          <button onClick={fazerLogout} style={{ ...btnStyle, background: '#dc2626', padding: '6px 12px' }}>Sair</button>
         </div>
       </header>
 
-      <main style={{ maxWidth: '1000px', margin: '0 auto', padding: '15px' }}>
+      <main style={{ maxWidth: '1000px', margin: '0 auto', padding: '20px' }}>
         
         {view === 'dashboard' && (
           <>
             {user?.perfil === 'admin' && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginBottom: '25px' }}>
-                <div style={{ flex: '1 1 300px', padding: '15px', backgroundColor: 'white', borderRadius: '6px', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
-                  <h4 style={{ margin: '0 0 10px 0', color: '#1e293b' }}>👥 Nova Atleta</h4>
-                  <form onSubmit={adicionarAtleta} style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', marginBottom: '35px' }}>
+                <div style={{ flex: '1 1 300px', padding: '20px', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                  <h3 style={{ margin: '0 0 15px 0', color: '#1e293b', fontSize: '1.1em' }}>👥 Nova Atleta</h3>
+                  <form onSubmit={adicionarAtleta} style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                     <input type="text" placeholder="Nome" value={novoNomeAtleta} onChange={(e) => setNovoNomeAtleta(e.target.value)} required style={inputStyle} />
                     <select value={novaPosicao} onChange={(e) => setNovaPosicao(e.target.value)} style={inputStyle}>
                       <option>Guarda-Redes</option><option>Defesa</option><option>Médio</option><option>Avançada</option>
@@ -178,34 +176,46 @@ export default function App() {
                   </form>
                 </div>
 
-                <div style={{ flex: '1 1 300px', padding: '15px', backgroundColor: 'white', borderRadius: '6px', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
-                  <h4 style={{ margin: '0 0 10px 0', color: '#1e293b' }}>📅 Novo Evento</h4>
-                  <form onSubmit={adicionarEvento} style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                <div style={{ flex: '1 1 300px', padding: '20px', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                  <h3 style={{ margin: '0 0 15px 0', color: '#1e293b', fontSize: '1.1em' }}>📅 Novo Evento</h3>
+                  <form onSubmit={adicionarEvento} style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                     <input type="date" value={novaData} onChange={(e) => setNovaData(e.target.value)} required style={inputStyle} />
                     <select value={novoTipo} onChange={(e) => setNovoTipo(e.target.value)} style={inputStyle}>
                       <option>Treino</option><option>Jogo (Oficial)</option><option>Jogo (Treino)</option>
                     </select>
                     {novoTipo.includes('Jogo') && <input type="text" placeholder="Adversário" value={novoAdversario} onChange={(e) => setNovoAdversario(e.target.value)} required style={inputStyle} />}
-                    <button type="submit" style={{ ...btnStyle, backgroundColor: '#3b82f6', flex: '1 1 100%' }}>Criar</button>
+                    <button type="submit" style={{ ...btnStyle, backgroundColor: '#3b82f6', flex: '1 1 100%' }}>Criar Evento</button>
                   </form>
                 </div>
               </div>
             )}
 
-            <div style={{ marginBottom: '30px' }}>
-              <h3 style={{ color: '#0f172a', borderBottom: '1px solid #e2e8f0', paddingBottom: '5px', margin: '0 0 15px 0' }}>📅 Calendário</h3>
-              {eventos.length === 0 ? <p style={{ fontSize: '0.85em' }}>Sem eventos.</p> : agruparEventosPorSemana().map(([semana, lista]) => (
-                <div key={semana} style={{ marginBottom: '15px' }}>
-                  <div style={{ color: '#64748b', fontSize: '0.85em', fontWeight: 'bold', marginBottom: '8px' }}>{semana}</div>
-                  {/* Grid adaptado para telemóveis: caixas mais pequenas */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '10px' }}>
+            <div style={{ marginBottom: '40px' }}>
+              <h2 style={{ color: '#0f172a', borderBottom: '2px solid #e2e8f0', paddingBottom: '10px', margin: '0 0 20px 0', fontSize: '1.4em', textAlign: 'center' }}>📅 Calendário</h2>
+              {eventos.length === 0 ? <p style={{ textAlign: 'center', color: '#64748b' }}>Sem eventos registados.</p> : agruparEventosPorSemana().map(([semana, lista]) => (
+                <div key={semana} style={{ marginBottom: '25px' }}>
+                  <h4 style={{ color: '#475569', fontSize: '1em', borderBottom: '1px solid #cbd5e1', paddingBottom: '5px', marginBottom: '15px', textAlign: 'center' }}>{semana}</h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '15px' }}>
                     {lista.map(ev => (
-                      <div key={ev.id} style={{ backgroundColor: 'white', borderLeft: `3px solid ${ev.tipo.includes('Jogo') ? '#ef4444' : '#10b981'}`, padding: '10px', borderRadius: '4px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', position: 'relative' }}>
-                        <div style={{ fontWeight: 'bold', color: '#1e293b', fontSize: '0.9em' }}>{new Date(ev.data).toLocaleDateString('pt-PT')}</div>
-                        <div style={{ color: ev.tipo.includes('Jogo') ? '#ef4444' : '#10b981', fontSize: '0.8em', fontWeight: 'bold', marginTop: '2px' }}>{ev.tipo}</div>
-                        {ev.adversario && <div style={{ fontSize: '0.75em', color: '#64748b', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>🆚 {ev.adversario}</div>}
-                        {user?.perfil === 'admin' && <button onClick={() => removerEvento(ev.id)} style={{ position: 'absolute', top: '5px', right: '5px', background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', fontSize: '0.75em', padding: 0 }}>✕</button>}
-                        <button style={{ width: '100%', marginTop: '10px', padding: '4px', backgroundColor: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8em' }}>Notas</button>
+                      <div key={ev.id} style={{ backgroundColor: 'white', borderLeft: `4px solid ${ev.tipo.includes('Jogo') ? '#ef4444' : '#10b981'}`, padding: '15px', borderRadius: '6px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                        <div>
+                          {/* Flexbox para colocar a Data e o Caixote do Lixo lado a lado sem sobrepor */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div style={{ fontWeight: 'bold', color: '#1e293b', fontSize: '1.05em' }}>
+                              {new Date(ev.data).toLocaleDateString('pt-PT')}
+                            </div>
+                            {user?.perfil === 'admin' && (
+                              <button onClick={() => removerEvento(ev.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.2em', padding: '0', color: '#ef4444' }} title="Apagar Evento">
+                                🗑️
+                              </button>
+                            )}
+                          </div>
+                          
+                          <div style={{ color: ev.tipo.includes('Jogo') ? '#ef4444' : '#10b981', fontSize: '0.9em', fontWeight: 'bold', marginTop: '6px' }}>{ev.tipo}</div>
+                          {ev.adversario && <div style={{ fontSize: '0.85em', color: '#64748b', marginTop: '6px' }}>🆚 {ev.adversario}</div>}
+                        </div>
+                        
+                        <button style={{ width: '100%', marginTop: '15px', padding: '8px', backgroundColor: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' }}>Ver Notas</button>
                       </div>
                     ))}
                   </div>
@@ -214,25 +224,24 @@ export default function App() {
             </div>
 
             <div>
-              <h3 style={{ color: '#0f172a', borderBottom: '1px solid #e2e8f0', paddingBottom: '5px', margin: '0 0 10px 0' }}>🏆 Classificação</h3>
-              {/* Contentor com scroll horizontal para não quebrar o layout no telemóvel */}
-              <div style={{ backgroundColor: 'white', borderRadius: '6px', boxShadow: '0 1px 2px rgba(0,0,0,0.1)', overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85em' }}>
+              <h2 style={{ color: '#0f172a', borderBottom: '2px solid #e2e8f0', paddingBottom: '10px', margin: '0 0 15px 0', fontSize: '1.4em', textAlign: 'center' }}>🏆 Classificação Geral</h2>
+              <div style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                   <thead style={{ backgroundColor: '#f8fafc' }}>
                     <tr>
-                      <th style={{ padding: '8px 10px', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>Atleta</th>
-                      <th style={{ padding: '8px 10px', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>Posição</th>
-                      <th style={{ padding: '8px 10px', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>Média</th>
-                      {user?.perfil === 'admin' && <th style={{ padding: '8px 10px', borderBottom: '1px solid #e2e8f0' }}></th>}
+                      <th style={{ padding: '12px 15px', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>Atleta</th>
+                      <th style={{ padding: '12px 15px', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>Posição</th>
+                      <th style={{ padding: '12px 15px', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>Média</th>
+                      {user?.perfil === 'admin' && <th style={{ padding: '12px 15px', borderBottom: '1px solid #e2e8f0' }}>Ações</th>}
                     </tr>
                   </thead>
                   <tbody>
                     {relatorio.map(atleta => (
                       <tr key={atleta.id}>
-                        <td style={{ padding: '8px 10px', borderBottom: '1px solid #f1f5f9', fontWeight: '500', color: '#1e293b', whiteSpace: 'nowrap' }}>{atleta.nome}</td>
-                        <td style={{ padding: '8px 10px', borderBottom: '1px solid #f1f5f9', color: '#64748b' }}>{atleta.posicao}</td>
-                        <td style={{ padding: '8px 10px', borderBottom: '1px solid #f1f5f9', fontWeight: 'bold', color: '#f59e0b' }}>{atleta.media_geral || '-'}</td>
-                        {user?.perfil === 'admin' && <td style={{ padding: '8px 10px', borderBottom: '1px solid #f1f5f9' }}><button onClick={() => removerAtleta(atleta.id)} style={{ padding: '2px 6px', backgroundColor: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '0.8em' }}>X</button></td>}
+                        <td style={{ padding: '12px 15px', borderBottom: '1px solid #f1f5f9', fontWeight: '500', color: '#1e293b', whiteSpace: 'nowrap' }}>{atleta.nome}</td>
+                        <td style={{ padding: '12px 15px', borderBottom: '1px solid #f1f5f9', color: '#64748b' }}>{atleta.posicao}</td>
+                        <td style={{ padding: '12px 15px', borderBottom: '1px solid #f1f5f9', fontWeight: 'bold', color: '#f59e0b' }}>{atleta.media_geral || '-'}</td>
+                        {user?.perfil === 'admin' && <td style={{ padding: '12px 15px', borderBottom: '1px solid #f1f5f9' }}><button onClick={() => removerAtleta(atleta.id)} style={{ padding: '4px 8px', backgroundColor: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85em' }}>Remover</button></td>}
                       </tr>
                     ))}
                   </tbody>
@@ -243,44 +252,44 @@ export default function App() {
         )}
 
         {view === 'admin' && user?.perfil === 'admin' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div style={{ backgroundColor: 'white', padding: '15px', borderRadius: '6px', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
-              <h4 style={{ color: '#0f172a', margin: '0 0 10px 0' }}>⚙️ Definições</h4>
-              <form onSubmit={atualizarNomeClube} style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
+            <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+              <h3 style={{ color: '#0f172a', margin: '0 0 15px 0' }}>⚙️ Definições do Clube</h3>
+              <form onSubmit={atualizarNomeClube} style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                 <input type="text" value={inputNomeClube} onChange={(e) => setInputNomeClube(e.target.value)} required style={inputStyle} />
-                <button type="submit" style={{ ...btnStyle, backgroundColor: '#3b82f6', flex: '1 1 auto' }}>Guardar</button>
+                <button type="submit" style={{ ...btnStyle, backgroundColor: '#3b82f6', flex: '1 1 auto' }}>Guardar Alterações</button>
               </form>
             </div>
 
-            <div style={{ backgroundColor: 'white', padding: '15px', borderRadius: '6px', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
-              <h4 style={{ color: '#0f172a', margin: '0 0 10px 0' }}>🔒 Utilizadores</h4>
-              <form onSubmit={adicionarUtilizador} style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '15px', paddingBottom: '15px', borderBottom: '1px solid #e2e8f0' }}>
-                <input type="text" placeholder="Nome" value={novoUserNome} onChange={(e) => setNovoUserNome(e.target.value)} required style={inputStyle} />
+            <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+              <h3 style={{ color: '#0f172a', margin: '0 0 15px 0' }}>🔒 Gestão de Utilizadores</h3>
+              <form onSubmit={adicionarUtilizador} style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #e2e8f0' }}>
+                <input type="text" placeholder="Nome Completo" value={novoUserNome} onChange={(e) => setNovoUserNome(e.target.value)} required style={inputStyle} />
                 <input type="text" placeholder="Username" value={novoUserUsername} onChange={(e) => setNovoUserUsername(e.target.value)} required style={inputStyle} />
                 <input type="password" placeholder="Senha" value={novoUserSenha} onChange={(e) => setNovoUserSenha(e.target.value)} required style={inputStyle} />
                 <select value={novoUserPerfil} onChange={(e) => setNovoUserPerfil(e.target.value)} style={inputStyle}>
                   <option value="treinador">Treinador</option><option value="admin">Admin</option>
                 </select>
-                <button type="submit" style={{ ...btnStyle, backgroundColor: '#10b981', flex: '1 1 100%' }}>Adicionar</button>
+                <button type="submit" style={{ ...btnStyle, backgroundColor: '#10b981', flex: '1 1 100%' }}>Adicionar Utilizador</button>
               </form>
 
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85em' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                   <thead>
                     <tr>
-                      <th style={{ padding: '6px', borderBottom: '2px solid #e2e8f0' }}>Nome</th>
-                      <th style={{ padding: '6px', borderBottom: '2px solid #e2e8f0' }}>Username</th>
-                      <th style={{ padding: '6px', borderBottom: '2px solid #e2e8f0' }}>Ações</th>
+                      <th style={{ padding: '10px', borderBottom: '2px solid #e2e8f0', color: '#475569' }}>Nome</th>
+                      <th style={{ padding: '10px', borderBottom: '2px solid #e2e8f0', color: '#475569' }}>Username</th>
+                      <th style={{ padding: '10px', borderBottom: '2px solid #e2e8f0', color: '#475569' }}>Ações</th>
                     </tr>
                   </thead>
                   <tbody>
                     {utilizadores.map(u => (
                       <tr key={u.id}>
-                        <td style={{ padding: '6px', borderBottom: '1px solid #f1f5f9' }}>{u.nome} ({u.perfil})</td>
-                        <td style={{ padding: '6px', borderBottom: '1px solid #f1f5f9' }}>{u.username}</td>
-                        <td style={{ padding: '6px', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: '5px' }}>
-                          <button onClick={() => mudarSenha(u.id)} style={{ padding: '4px', backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '3px', cursor: 'pointer', fontSize: '0.8em' }}>Senha</button>
-                          <button onClick={() => removerUtilizador(u.id)} style={{ padding: '4px', backgroundColor: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '0.8em' }}>X</button>
+                        <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>{u.nome} <span style={{ fontSize: '0.8em', color: '#94a3b8' }}>({u.perfil})</span></td>
+                        <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>{u.username}</td>
+                        <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: '8px' }}>
+                          <button onClick={() => mudarSenha(u.id)} style={{ padding: '6px 10px', backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85em' }}>Nova Senha</button>
+                          <button onClick={() => removerUtilizador(u.id)} style={{ padding: '6px 10px', backgroundColor: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85em' }}>Remover</button>
                         </td>
                       </tr>
                     ))}
