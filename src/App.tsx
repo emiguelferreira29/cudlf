@@ -8,27 +8,16 @@ import AvaliacaoEvento from './pages/AvaliacaoEvento';
 import Admin from './pages/Admin';
 
 export default function App() {
-  // 1. Recupera o utilizador autenticado guardado no navegador
   const [user, setUser] = useState<Utilizador | null>(() => {
     const salvo = localStorage.getItem('clube_user');
-    try {
-      return salvo ? JSON.parse(salvo) : null;
-    } catch {
-      return null;
-    }
+    try { return salvo ? JSON.parse(salvo) : null; } catch { return null; }
   });
 
-  // 2. Recupera o evento que estava selecionado (se houver)
   const [eventoSelecionado, setEventoSelecionado] = useState<Evento | null>(() => {
     const salvo = localStorage.getItem('clube_evento');
-    try {
-      return salvo ? JSON.parse(salvo) : null;
-    } catch {
-      return null;
-    }
+    try { return salvo ? JSON.parse(salvo) : null; } catch { return null; }
   });
 
-  // 3. Recupera o ecrã onde o utilizador se encontrava
   const [view, setView] = useState<'login' | 'dashboard' | 'admin' | 'evento'>(() => {
     const utilizadorSalvo = localStorage.getItem('clube_user');
     const viewSalva = localStorage.getItem('clube_view');
@@ -43,11 +32,25 @@ export default function App() {
   const [nomeClube, setNomeClube] = useState('Clube');
   const [atletas, setAtletas] = useState<Atleta[]>([]);
 
-  // Carrega configurações e a lista de atletas logo no arranque
   useEffect(() => {
     fetchConfiguracoes();
-    fetchAtletas();
-  }, []);
+    if (user) fetchAtletas();
+  }, [user]);
+
+  // --- Otimização PWA: Gestão do Botão Voltar (Hardware/Gestos no Telemóvel) ---
+  useEffect(() => {
+    const handlePopState = () => {
+      // Se o utilizador usar o recuo do telemóvel enquanto está fora do dashboard, nós forçamos o regresso em vez de fechar a app
+      if (user && view !== 'dashboard') {
+        setEventoSelecionado(null);
+        setView('dashboard');
+        localStorage.setItem('clube_view', 'dashboard');
+        localStorage.removeItem('clube_evento');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [user, view]);
 
   const fetchConfiguracoes = async () => {
     const { data } = await supabase.from('configuracoes').select('*').eq('chave', 'nome_clube').single();
@@ -59,24 +62,33 @@ export default function App() {
     if (data) setAtletas(data as Atleta[]);
   };
 
-  // Funções de transição de ecrã com persistência
-  const navegarPara = (novaView: 'dashboard' | 'admin') => {
-    setView(novaView);
-    localStorage.setItem('clube_view', novaView);
+  // --- Navegação com History API para suportar o Back Button ---
+  const irParaDashboard = () => {
+    if (view !== 'dashboard') {
+      window.history.back(); // Aciona o evento popstate acima de forma natural
+      setTimeout(() => { // Fallback de segurança rápido
+        setView('dashboard');
+        setEventoSelecionado(null);
+        localStorage.setItem('clube_view', 'dashboard');
+        localStorage.removeItem('clube_evento');
+      }, 50);
+    }
+  };
+
+  const irParaAdmin = () => {
+    if (view !== 'admin') {
+      window.history.pushState({ page: 'admin' }, '');
+      setView('admin');
+      localStorage.setItem('clube_view', 'admin');
+    }
   };
 
   const selecionarEvento = (ev: Evento) => {
+    window.history.pushState({ page: 'evento' }, '');
     setEventoSelecionado(ev);
     setView('evento');
     localStorage.setItem('clube_evento', JSON.stringify(ev));
     localStorage.setItem('clube_view', 'evento');
-  };
-
-  const voltarParaDashboard = () => {
-    setEventoSelecionado(null);
-    setView('dashboard');
-    localStorage.removeItem('clube_evento');
-    localStorage.setItem('clube_view', 'dashboard');
   };
 
   const loginSucesso = (u: Utilizador) => {
@@ -91,18 +103,11 @@ export default function App() {
     setUser(null);
     setEventoSelecionado(null);
     setView('login');
-    localStorage.removeItem('clube_user');
-    localStorage.removeItem('clube_view');
-    localStorage.removeItem('clube_evento');
+    localStorage.clear();
   };
 
   if (!user || view === 'login') {
-    return (
-      <Login 
-        nomeClube={nomeClube} 
-        onLoginSuccess={loginSucesso} 
-      />
-    );
+    return <Login nomeClube={nomeClube} onLoginSuccess={loginSucesso} />;
   }
 
   const btnNavStyle = (ativo: boolean) => ({
@@ -121,9 +126,9 @@ export default function App() {
         <div style={{ fontWeight: 'bold', fontSize: '1.2em' }}>⚽ {nomeClube}</div>
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <span style={{ fontSize: '0.85em', color: '#cbd5e1', marginRight: '5px' }}>{user.nome.split(' ')[0]}</span>
-          <button onClick={() => navegarPara('dashboard')} style={btnNavStyle(view === 'dashboard')}>Painel</button>
+          <button onClick={irParaDashboard} style={btnNavStyle(view === 'dashboard')}>Painel</button>
           {user.perfil === 'admin' && (
-            <button onClick={() => navegarPara('admin')} style={btnNavStyle(view === 'admin')}>Admin</button>
+            <button onClick={irParaAdmin} style={btnNavStyle(view === 'admin')}>Admin</button>
           )}
           <button onClick={fazerLogout} style={{ background: '#dc2626', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85em' }}>Sair</button>
         </div>
@@ -143,8 +148,8 @@ export default function App() {
             evento={eventoSelecionado}
             user={user}
             atletas={atletas}
-            onVoltar={voltarParaDashboard}
-            onGuardado={voltarParaDashboard}
+            onVoltar={irParaDashboard}
+            onGuardado={irParaDashboard}
           />
         )}
 
