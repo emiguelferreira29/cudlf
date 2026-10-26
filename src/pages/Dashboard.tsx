@@ -8,18 +8,22 @@ interface DashboardProps {
   onAtualizarAtletas: (atletas: Atleta[]) => void;
 }
 
+// Estendemos o tipo Evento localmente para incluir as iniciais dos treinadores
+interface EventoComAvaliadores extends Evento {
+  avaliadores?: string[];
+}
+
 const PESO_POSICAO: Record<string, number> = { 'Guarda-Redes': 1, 'Defesa': 2, 'Médio': 3, 'Avançada': 4 };
 
-// Função para definir a cor com base no tipo de evento
 const getCorEvento = (tipo: string) => {
-  if (tipo === 'Jogo (Oficial)') return '#ef4444'; // Vermelho
-  if (tipo === 'Jogo (Treino)') return '#f59e0b'; // Laranja
-  return '#10b981'; // Verde (Treino)
+  if (tipo === 'Jogo (Oficial)') return '#ef4444'; 
+  if (tipo === 'Jogo (Treino)') return '#f59e0b'; 
+  return '#10b981'; 
 };
 
 export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas }: DashboardProps) {
   const [relatorio, setRelatorio] = useState<AtletaRelatorio[]>([]);
-  const [eventos, setEventos] = useState<Evento[]>([]);
+  const [eventos, setEventos] = useState<EventoComAvaliadores[]>([]);
 
   // Estados para Filtro do Calendário
   const [filtroMes, setFiltroMes] = useState(new Date().getMonth() + 1);
@@ -52,8 +56,34 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
   };
 
   const fetchEventos = async () => {
-    const { data } = await supabase.from('eventos').select('*').order('data', { ascending: false });
-    if (data) setEventos(data as Evento[]);
+    // Pedimos também as avaliações e o nome do treinador associado a cada avaliação
+    const { data } = await supabase
+      .from('eventos')
+      .select('*, avaliacoes(treinador:utilizadores(nome))')
+      .order('data', { ascending: false });
+    
+    if (data) {
+      const eventosProcessados = data.map((ev: any) => {
+        const nomes: string[] = [];
+        if (ev.avaliacoes) {
+          ev.avaliacoes.forEach((av: any) => {
+            const nome = av.treinador?.nome;
+            if (nome && !nomes.includes(nome)) nomes.push(nome);
+          });
+        }
+        // Extrai a primeira letra de cada treinador que avaliou
+        const avaliadores = nomes.map(n => n.charAt(0).toUpperCase());
+        
+        return {
+          id: ev.id,
+          data: ev.data,
+          tipo: ev.tipo,
+          adversario: ev.adversario,
+          avaliadores
+        };
+      });
+      setEventos(eventosProcessados);
+    }
   };
 
   const fetchAtletas = async () => {
@@ -69,7 +99,6 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
     }
   };
 
-  // --- Lógica de Edição/Eliminação (Apenas Admin) ---
   const iniciarEdicaoEvento = (ev: Evento) => {
     setEditandoEvento(ev.id);
     setNovaData(ev.data);
@@ -124,7 +153,7 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
       return parseInt(mes) === filtroMes && parseInt(ano) === filtroAno;
     });
 
-    const grupos = new Map<string, Evento[]>();
+    const grupos = new Map<string, EventoComAvaliadores[]>();
     eventosFiltrados.forEach(evento => {
       const d = new Date(evento.data);
       const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -187,7 +216,6 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
       <div style={{ marginBottom: '35px' }}>
         <h2 style={{ color: '#0f172a', borderBottom: '2px solid #e2e8f0', paddingBottom: '10px', margin: '0 0 15px 0', fontSize: '1.3em', textAlign: 'center' }}>📅 Calendário</h2>
         
-        {/* Filtro de Mês e Ano responsivo */}
         <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '20px' }}>
           <select value={filtroMes} onChange={(e) => setFiltroMes(Number(e.target.value))} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', backgroundColor: 'white', outline: 'none', cursor: 'pointer', fontWeight: '500', flex: '1 1 120px' }}>
             <option value={1}>Janeiro</option><option value={2}>Fevereiro</option><option value={3}>Março</option>
@@ -214,7 +242,6 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
                 {lista.map(ev => {
                   const dataObj = new Date(ev.data);
                   const dataFormatada = dataObj.toLocaleDateString('pt-PT');
-                  // Extrai o dia da semana ("segunda-feira", etc) e remove o "-feira" para ficar mais limpo
                   const diaSemana = dataObj.toLocaleDateString('pt-PT', { weekday: 'long' }).split('-')[0];
 
                   return (
@@ -232,9 +259,33 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
                             </div>
                           )}
                         </div>
-                        <div style={{ color: getCorEvento(ev.tipo), fontSize: '0.85em', fontWeight: 'bold', marginTop: '6px' }}>{ev.tipo}</div>
+                        <div style={{ color: getCorEvento(ev.tipo), fontSize: '0.85em', fontWeight: 'bold', marginTop: '4px' }}>{ev.tipo}</div>
                         {ev.adversario && <div style={{ fontSize: '0.8em', color: '#64748b', marginTop: '2px' }}>🆚 {ev.adversario}</div>}
+                        
+                        {/* Exibição das Iniciais dos Treinadores que avaliaram */}
+                        {ev.avaliadores && ev.avaliadores.length > 0 && (
+                          <div style={{ display: 'flex', gap: '5px', marginTop: '10px' }}>
+                            {ev.avaliadores.map((inicial, idx) => (
+                              <span key={idx} style={{ 
+                                backgroundColor: '#f1f5f9', 
+                                color: '#334155', 
+                                border: '1px solid #cbd5e1', 
+                                fontSize: '0.7em', 
+                                fontWeight: 'bold', 
+                                width: '22px', 
+                                height: '22px', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center', 
+                                borderRadius: '50%' 
+                              }}>
+                                {inicial}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
+                      
                       <button type="button" onClick={() => onSelecionarEvento(ev)} style={{ width: '100%', marginTop: '12px', padding: '8px', backgroundColor: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer', fontWeight: '500', fontSize: '0.9em' }}>Ver Notas</button>
                     </div>
                   );
@@ -261,16 +312,11 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
               {relatorioOrdenado.map(atleta => (
                 <tr key={atleta.id}>
                   <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', color: '#64748b', fontSize: '0.9em', textAlign: 'center' }}>{atleta.numero || '-'}</td>
-                  
-                  {/* Nome e Posição fundidos na mesma coluna para poupar espaço horizontal */}
                   <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9' }}>
                     <div style={{ fontWeight: '600', color: '#1e293b', fontSize: '0.95em' }}>{atleta.nome}</div>
                     <div style={{ fontSize: '0.75em', color: '#94a3b8', marginTop: '2px' }}>{atleta.posicao}</div>
                   </td>
-                  
                   <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', fontWeight: 'bold', color: '#f59e0b', fontSize: '0.95em', textAlign: 'center' }}>{atleta.media_geral || '-'}</td>
-                  
-                  {/* Botões substituídos por ícones */}
                   {user.perfil === 'admin' && (
                     <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', textAlign: 'center' }}>
                       <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
