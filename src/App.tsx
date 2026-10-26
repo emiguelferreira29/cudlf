@@ -37,12 +37,10 @@ export default function App() {
     fetchConfiguracoes();
     if (user) {
       fetchAtletas();
-      // Atualiza os dados do utilizador caso o admin tenha alterado as permissões a meio da sessão
       supabase.from('utilizadores').select('*').eq('id', user.id).single().then(({ data }) => {
         if (data) {
           setUser(data);
           localStorage.setItem('clube_user', JSON.stringify(data));
-          // Expulsa da página de relatórios se lhe tiverem tirado o acesso
           if (view === 'relatorio' && data.perfil !== 'admin' && !data.acesso_relatorios) {
             irParaDashboard();
           }
@@ -131,7 +129,6 @@ export default function App() {
     fontSize: '0.85em'
   });
 
-  // A regra de negócio: Vê relatórios se for Admin OU se tiver acesso_relatorios = true
   const podeVerRelatorios = user.perfil === 'admin' || user.acesso_relatorios;
 
   return (
@@ -169,8 +166,8 @@ export default function App() {
             user={user}
             atletas={atletas}
             onVoltar={irParaDashboard}
-            onGuardado={irParaDashboard}
-            onMudarEvento={selecionarEvento} 
+            onGuardado={() => {}}
+            onMudarEvento={selecionarEvento}
           />
         )}
 
