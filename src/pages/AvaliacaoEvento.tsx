@@ -7,8 +7,13 @@ interface AvaliacaoProps {
   user: Utilizador;
   atletas: Atleta[];
   onVoltar: () => void;
-  onGuardado: () => void;
+  onGuardado?: () => void;
   onMudarEvento?: (ev: Evento) => void;
+}
+
+interface Notificacao {
+  mensagem: string;
+  tipo: 'sucesso' | 'erro' | 'aviso';
 }
 
 const PESO_POSICAO: Record<string, number> = { 'Guarda-Redes': 1, 'Defesa': 2, 'Médio': 3, 'Avançada': 4 };
@@ -19,9 +24,12 @@ export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGua
   const [avaliacoesGerais, setAvaliacoesGerais] = useState<any[]>([]);
   const [treinadoresEnvolvidos, setTreinadoresEnvolvidos] = useState<Record<string, string>>({});
   
-  // Estados de navegação cronológica
   const [eventoAnterior, setEventoAnterior] = useState<Evento | null>(null);
   const [eventoSeguinte, setEventoSeguinte] = useState<Evento | null>(null);
+
+  // Estados dos novos popups da plataforma
+  const [notificacao, setNotificacao] = useState<Notificacao | null>(null);
+  const [atletaParaRemover, setAtletaParaRemover] = useState<string | null>(null);
 
   useEffect(() => {
     if (user.perfil === 'admin') {
@@ -31,6 +39,18 @@ export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGua
     }
     carregarAdjacentes();
   }, [evento.id]);
+
+  // Temporizador para esconder o popup de notificação automaticamente
+  useEffect(() => {
+    if (notificacao) {
+      const timer = setTimeout(() => setNotificacao(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [notificacao]);
+
+  const mostrarNotificacao = (mensagem: string, tipo: 'sucesso' | 'erro' | 'aviso') => {
+    setNotificacao({ mensagem, tipo });
+  };
 
   const carregarAdjacentes = async () => {
     const { data } = await supabase.from('eventos').select('*').order('data', { ascending: true });
@@ -76,26 +96,139 @@ export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGua
     setAvaliacoes(prev => ({ ...prev, [atletaId]: { ...(prev[atletaId] || { nota: '', semPontuacao: false, motivo: 'Falta' }), [campo]: valor } }));
   };
 
-  const removerAvaliacao = async (atletaId: string) => {
-    if (!window.confirm('Pretende remover a avaliação desta atleta?')) return;
-    const { error } = await supabase.from('avaliacoes').delete().eq('evento_id', evento.id).eq('atleta_id', atletaId).eq('treinador_id', user.id);
-    if (!error) { setAvaliacoes(prev => { const n = { ...prev }; delete n[atletaId]; return n; }); }
+  const confirmarRemocao = async () => {
+    if (!atletaParaRemover) return;
+    const { error } = await supabase.from('avaliacoes').delete().eq('evento_id', evento.id).eq('atleta_id', atletaParaRemover).eq('treinador_id', user.id);
+    if (!error) {
+      setAvaliacoes(prev => { const n = { ...prev }; delete n[atletaParaRemover]; return n; });
+      mostrarNotificacao('Avaliação removida com sucesso.', 'aviso');
+    } else {
+      mostrarNotificacao('Erro ao remover a avaliação.', 'erro');
+    }
+    setAtletaParaRemover(null);
   };
 
   const guardar = async () => {
     setSalvando(true);
     const dados = Object.entries(avaliacoes)
       .filter(([_, d]) => d.nota.trim() !== '' || d.semPontuacao)
-      .map(([atletaId, d]) => ({ evento_id: evento.id, atleta_id: atletaId, treinador_id: user.id, nota: d.semPontuacao ? null : parseFloat(d.nota), motivo: d.semPontuacao ? d.motivo : null }));
+      .map(([atletaId, d]) => ({ 
+        evento_id: evento.id, 
+        atleta_id: atletaId, 
+        treinador_id: user.id, 
+        nota: d.semPontuacao ? null : parseFloat(d.nota), 
+        motivo: d.semPontuacao ? d.motivo : null 
+      }));
 
-    if (dados.length === 0) { alert('Nada para guardar.'); setSalvando(false); return; }
+    if (dados.length === 0) { 
+      mostrarNotificacao('Nenhuma nota ou justificação preenchida.', 'aviso');
+      setSalvando(false); 
+      return; 
+    }
+
     const { error } = await supabase.from('avaliacoes').upsert(dados, { onConflict: 'evento_id, atleta_id, treinador_id' });
     setSalvando(false);
-    if (!error) { alert('Notas guardadas!'); onGuardado(); } else alert('Erro.');
+    
+    if (!error) { 
+      mostrarNotificacao('Notas guardadas com sucesso!', 'sucesso');
+      if (user.perfil === 'admin') {
+        carregarTodasAsNotasAdmin();
+      } else {
+        carregarNotasExistentes();
+      }
+      onGuardado?.();
+    } else {
+      mostrarNotificacao('Erro ao comunicar com a base de dados.', 'erro');
+    }
   };
 
   return (
-    <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+    <div style={{ maxWidth: '900px', margin: '0 auto', position: 'relative' }}>
+      
+      {/* POPUP TOAST DE NOTIFICAÇÃO DA PLATAFORMA */}
+      {notificacao && (
+        <div style={{
+          position: 'fixed',
+          top: '25px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 9999,
+          backgroundColor: 'white',
+          borderRadius: '8px',
+          padding: '14px 22px',
+          boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          borderLeft: `5px solid ${notificacao.tipo === 'sucesso' ? '#10b981' : (notificacao.tipo === 'erro' ? '#ef4444' : '#f59e0b')}`,
+          animation: 'slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+        }}>
+          <span style={{ fontSize: '1.2em' }}>
+            {notificacao.tipo === 'sucesso' ? '✅' : (notificacao.tipo === 'erro' ? '❌' : '⚠️')}
+          </span>
+          <span style={{ color: '#0f172a', fontWeight: '600', fontSize: '0.95em' }}>
+            {notificacao.mensagem}
+          </span>
+          <button 
+            type="button" 
+            onClick={() => setNotificacao(null)} 
+            style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '1em', marginLeft: '8px' }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* MODAL DE CONFIRMAÇÃO DE REMOÇÃO DA PLATAFORMA */}
+      {atletaParaRemover && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.6)',
+          backdropFilter: 'blur(2px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9998,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '24px',
+            maxWidth: '400px',
+            width: '100%',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15)',
+            textAlign: 'center'
+          }}>
+            <div style={{ fontSize: '2em', marginBottom: '10px' }}>🗑️</div>
+            <h3 style={{ margin: '0 0 10px 0', color: '#0f172a' }}>Limpar Avaliação?</h3>
+            <p style={{ color: '#64748b', fontSize: '0.92em', margin: '0 0 20px 0', lineHeight: '1.5' }}>
+              Tem a certeza de que pretende remover a pontuação desta atleta para este evento?
+            </p>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <button 
+                type="button" 
+                onClick={() => setAtletaParaRemover(null)}
+                style={{ padding: '10px 18px', backgroundColor: '#e2e8f0', color: '#334155', border: 'none', borderRadius: '6px', fontWeight: '600', cursor: 'pointer', flex: '1' }}
+              >
+                Cancelar
+              </button>
+              <button 
+                type="button" 
+                onClick={confirmarRemocao}
+                style={{ padding: '10px 18px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', fontWeight: '600', cursor: 'pointer', flex: '1' }}
+              >
+                Sim, Remover
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '15px', backgroundColor: 'white', padding: '16px 20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
         <div>
           <h2 style={{ margin: '0 0 4px 0', color: '#0f172a', fontSize: '1.25em' }}>{user.perfil === 'admin' ? 'Visão Global de Notas' : 'Registo de Notas'}</h2>
@@ -187,7 +320,15 @@ export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGua
                     ) : (
                       <input type="number" min="0" max="10" step="0.1" placeholder="0 - 10" value={aval?.nota || ''} onChange={(e) => atualizarInput(atleta.id, 'nota', e.target.value)} style={{ width: '85px', padding: '8px 10px', borderRadius: '6px', border: '2px solid #94a3b8', backgroundColor: '#ffffff', color: '#0f172a', fontSize: '0.95em', fontWeight: 'bold', textAlign: 'center' }} />
                     )}
-                    {temRegisto && <button type="button" onClick={() => removerAvaliacao(atleta.id)} style={{ padding: '8px 10px', backgroundColor: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85em', fontWeight: '600' }}>🗑️ Limpar</button>}
+                    {temRegisto && (
+                      <button 
+                        type="button" 
+                        onClick={() => setAtletaParaRemover(atleta.id)} 
+                        style={{ padding: '8px 10px', backgroundColor: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85em', fontWeight: '600' }}
+                      >
+                        🗑️ Limpar
+                      </button>
+                    )}
                   </div>
                 </div>
               );
