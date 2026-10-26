@@ -8,6 +8,7 @@ interface RelatorioProps {
 
 export default function Relatorio({ atletas }: RelatorioProps) {
   const [avaliacoes, setAvaliacoes] = useState<any[]>([]);
+  const [treinadores, setTreinadores] = useState<{id: string, nome: string}[]>([]);
   const [tipoView, setTipoView] = useState<'global' | 'individual'>('global');
   
   // Estados para o Relatório Individual
@@ -18,7 +19,6 @@ export default function Relatorio({ atletas }: RelatorioProps) {
     carregarTodasAvaliacoes();
   }, []);
 
-  // Define a primeira atleta como padrão quando a lista carregar
   useEffect(() => {
     if (atletas.length > 0 && !atletaSelecionada) {
       setAtletaSelecionada(atletas[0].id);
@@ -26,12 +26,23 @@ export default function Relatorio({ atletas }: RelatorioProps) {
   }, [atletas]);
 
   const carregarTodasAvaliacoes = async () => {
-    // Trazemos as notas e a data do evento correspondente
+    // Carrega todas as avaliações, incluindo o nome do treinador que as fez
     const { data } = await supabase
       .from('avaliacoes')
-      .select('nota, atleta_id, eventos(data)');
+      .select('nota, atleta_id, treinador_id, eventos(data), treinador:utilizadores(nome)');
     
-    if (data) setAvaliacoes(data);
+    if (data) {
+      setAvaliacoes(data);
+      
+      // Extrair a lista de treinadores únicos (ex: Pedro, Daniela)
+      const tMap = new Map<string, string>();
+      data.forEach((av: any) => {
+        if (av.treinador?.nome) {
+          tMap.set(av.treinador_id, av.treinador.nome.split(' ')[0]); // Apenas o primeiro nome
+        }
+      });
+      setTreinadores(Array.from(tMap.entries()).map(([id, nome]) => ({ id, nome })));
+    }
   };
 
   const getWeekNumber = (d: Date) => {
@@ -42,11 +53,29 @@ export default function Relatorio({ atletas }: RelatorioProps) {
     return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
   };
 
-  const calcularMediaGlobal = (atletaId: string) => {
-    const notas = avaliacoes.filter(av => av.atleta_id === atletaId && av.nota !== null).map(av => parseFloat(av.nota));
-    if (notas.length === 0) return '-';
-    return (notas.reduce((a, b) => a + b, 0) / notas.length).toFixed(2);
-  };
+  // Processamento e ordenação para a tabela Global
+  const atletasComMedias = atletas.map(atleta => {
+    const notasAtleta = avaliacoes.filter(av => av.atleta_id === atleta.id && av.nota !== null);
+    
+    // Média Global da Atleta
+    const globalNotas = notasAtleta.map(av => parseFloat(av.nota));
+    const mediaGlobal = globalNotas.length > 0 ? globalNotas.reduce((a, b) => a + b, 0) / globalNotas.length : null;
+
+    // Médias por Treinador
+    const mediasTreinador: Record<string, number | null> = {};
+    treinadores.forEach(t => {
+      const notasT = notasAtleta.filter(av => av.treinador_id === t.id).map(av => parseFloat(av.nota));
+      mediasTreinador[t.id] = notasT.length > 0 ? notasT.reduce((a, b) => a + b, 0) / notasT.length : null;
+    });
+
+    return { ...atleta, mediaGlobal, mediasTreinador };
+  }).sort((a, b) => {
+    // Ordenar da pontuação mais alta para a mais baixa
+    const valA = a.mediaGlobal ?? -1;
+    const valB = b.mediaGlobal ?? -1;
+    if (valA !== valB) return valB - valA;
+    return a.nome.localeCompare(b.nome, 'pt-PT');
+  });
 
   const gerarTextoIndividual = () => {
     const hoje = new Date();
@@ -83,7 +112,6 @@ export default function Relatorio({ atletas }: RelatorioProps) {
 
   return (
     <div className="print-area">
-      {/* Estilos injetados para formatação limpa no momento de imprimir o PDF */}
       <style>
         {`
           @media print {
@@ -106,24 +134,41 @@ export default function Relatorio({ atletas }: RelatorioProps) {
       </div>
 
       {tipoView === 'global' ? (
-        <div className="print-shadow" style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+        <div className="print-shadow" style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflowX: 'auto' }}>
           <h2 style={{ color: '#0f172a', margin: '0 0 20px 0', borderBottom: '2px solid #e2e8f0', paddingBottom: '10px' }}>Relatório Global de Pontuações</h2>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
               <tr>
                 <th style={{ padding: '10px', borderBottom: '2px solid #e2e8f0', color: '#475569' }}>Nº</th>
                 <th style={{ padding: '10px', borderBottom: '2px solid #e2e8f0', color: '#475569' }}>Atleta</th>
-                <th style={{ padding: '10px', borderBottom: '2px solid #e2e8f0', color: '#475569' }}>Posição</th>
-                <th style={{ padding: '10px', borderBottom: '2px solid #e2e8f0', color: '#475569', textAlign: 'center' }}>Média Global</th>
+                
+                {/* Colunas Dinâmicas dos Treinadores */}
+                {treinadores.map(t => (
+                  <th key={t.id} style={{ padding: '10px', borderBottom: '2px solid #e2e8f0', color: '#475569', textAlign: 'center' }}>{t.nome}</th>
+                ))}
+                
+                <th style={{ padding: '10px', borderBottom: '2px solid #e2e8f0', color: '#0f172a', textAlign: 'center' }}>Média Global</th>
               </tr>
             </thead>
             <tbody>
-              {atletas.map(atleta => (
+              {atletasComMedias.map(atleta => (
                 <tr key={atleta.id}>
                   <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9', color: '#64748b' }}>{atleta.numero || '-'}</td>
-                  <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9', fontWeight: 'bold', color: '#1e293b' }}>{atleta.nome}</td>
-                  <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9', color: '#64748b' }}>{atleta.posicao}</td>
-                  <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9', fontWeight: 'bold', color: '#f59e0b', textAlign: 'center' }}>{calcularMediaGlobal(atleta.id)}</td>
+                  <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9', fontWeight: 'bold', color: '#1e293b' }}>
+                    {atleta.nome}
+                    <div style={{ fontSize: '0.8em', color: '#94a3b8', fontWeight: 'normal' }}>{atleta.posicao}</div>
+                  </td>
+                  
+                  {/* Notas individuais dos treinadores */}
+                  {treinadores.map(t => (
+                    <td key={t.id} style={{ padding: '10px', borderBottom: '1px solid #f1f5f9', color: '#64748b', textAlign: 'center' }}>
+                      {atleta.mediasTreinador[t.id] ? atleta.mediasTreinador[t.id]?.toFixed(2) : '-'}
+                    </td>
+                  ))}
+                  
+                  <td style={{ padding: '10px', borderBottom: '1px solid #f1f5f9', fontWeight: 'bold', color: '#f59e0b', textAlign: 'center', fontSize: '1.1em' }}>
+                    {atleta.mediaGlobal ? atleta.mediaGlobal.toFixed(2) : '-'}
+                  </td>
                 </tr>
               ))}
             </tbody>
