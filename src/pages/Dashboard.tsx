@@ -10,7 +10,7 @@ interface DashboardProps {
 
 const PESO_POSICAO: Record<string, number> = { 'Guarda-Redes': 1, 'Defesa': 2, 'Médio': 3, 'Avançada': 4 };
 
-export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas }: DashboardProps) {
+export default function Dashboard({ onSelecionarEvento, onAtualizarAtletas }: DashboardProps) {
   const [relatorio, setRelatorio] = useState<AtletaRelatorio[]>([]);
   const [eventos, setEventos] = useState<Evento[]>([]);
 
