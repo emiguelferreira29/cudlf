@@ -10,9 +10,21 @@ interface DashboardProps {
 
 const PESO_POSICAO: Record<string, number> = { 'Guarda-Redes': 1, 'Defesa': 2, 'Médio': 3, 'Avançada': 4 };
 
-export default function Dashboard({ onSelecionarEvento, onAtualizarAtletas }: DashboardProps) {
+export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas }: DashboardProps) {
   const [relatorio, setRelatorio] = useState<AtletaRelatorio[]>([]);
   const [eventos, setEventos] = useState<Evento[]>([]);
+
+  // Estados para Edição Temporária de Atleta no Dashboard
+  const [editandoAtleta, setEditandoAtleta] = useState<string | null>(null);
+  const [novoNumero, setNovoNumero] = useState('');
+  const [novoNome, setNovoNome] = useState('');
+  const [novaPosicao, setNovaPosicao] = useState('Guarda-Redes');
+
+  // Estados para Edição Temporária de Evento no Dashboard
+  const [editandoEvento, setEditandoEvento] = useState<string | null>(null);
+  const [novaData, setNovaData] = useState('');
+  const [novoTipo, setNovoTipo] = useState('Treino');
+  const [novoAdversario, setNovoAdversario] = useState('');
 
   useEffect(() => {
     carregarTudo();
@@ -47,6 +59,54 @@ export default function Dashboard({ onSelecionarEvento, onAtualizarAtletas }: Da
     }
   };
 
+  // --- Lógica de Edição/Eliminação (Apenas Admin) ---
+  const iniciarEdicaoEvento = (ev: Evento) => {
+    setEditandoEvento(ev.id);
+    setNovaData(ev.data);
+    setNovoTipo(ev.tipo);
+    setNovoAdversario(ev.adversario || '');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const salvarEdicaoEvento = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (novoTipo.includes('Jogo') && !novoAdversario.trim()) return alert('Indique o adversário.');
+    const dados = { data: novaData, tipo: novoTipo, adversario: novoTipo.includes('Jogo') ? novoAdversario : null };
+    await supabase.from('eventos').update(dados).eq('id', editandoEvento);
+    setEditandoEvento(null);
+    fetchEventos();
+  };
+
+  const removerEvento = async (id: string) => {
+    if (window.confirm('Apagar evento e todas as avaliações associadas?')) {
+      await supabase.from('eventos').delete().eq('id', id);
+      fetchEventos();
+    }
+  };
+
+  const iniciarEdicaoAtleta = (atleta: AtletaRelatorio) => {
+    setEditandoAtleta(atleta.id);
+    setNovoNumero(atleta.numero?.toString() || '');
+    setNovoNome(atleta.nome);
+    setNovaPosicao(atleta.posicao);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const salvarEdicaoAtleta = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const dados = { numero: novoNumero ? parseInt(novoNumero) : null, nome: novoNome, posicao: novaPosicao };
+    await supabase.from('atletas').update(dados).eq('id', editandoAtleta);
+    setEditandoAtleta(null);
+    carregarTudo();
+  };
+
+  const removerAtleta = async (id: string) => {
+    if (window.confirm('Eliminar atleta e o seu histórico de notas?')) {
+      await supabase.from('atletas').delete().eq('id', id);
+      carregarTudo();
+    }
+  };
+
   const agruparEventosPorSemana = () => {
     const grupos = new Map<string, Evento[]>();
     eventos.forEach(evento => {
@@ -71,8 +131,42 @@ export default function Dashboard({ onSelecionarEvento, onAtualizarAtletas }: Da
     return a.nome.localeCompare(b.nome, 'pt-PT');
   });
 
+  const inputStyle = { padding: '8px 10px', fontSize: '0.9em', border: '1px solid #cbd5e1', borderRadius: '4px', flex: '1 1 120px' };
+
   return (
     <>
+      {/* Formulários Condicionais de Edição Rápida */}
+      {user.perfil === 'admin' && editandoEvento && (
+        <div style={{ padding: '20px', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '30px', border: '2px solid #3b82f6' }}>
+          <h3 style={{ margin: '0 0 15px 0', color: '#1e293b' }}>✏️ Atualizar Evento</h3>
+          <form onSubmit={salvarEdicaoEvento} style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+            <input type="date" value={novaData} onChange={(e) => setNovaData(e.target.value)} required style={inputStyle} />
+            <select value={novoTipo} onChange={(e) => setNovoTipo(e.target.value)} style={inputStyle}>
+              <option>Treino</option><option>Jogo (Oficial)</option><option>Jogo (Treino)</option>
+            </select>
+            {novoTipo.includes('Jogo') && <input type="text" placeholder="Adversário" value={novoAdversario} onChange={(e) => setNovoAdversario(e.target.value)} required style={inputStyle} />}
+            <button type="submit" style={{ padding: '8px 15px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Guardar</button>
+            <button type="button" onClick={() => setEditandoEvento(null)} style={{ padding: '8px 15px', backgroundColor: '#64748b', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancelar</button>
+          </form>
+        </div>
+      )}
+
+      {user.perfil === 'admin' && editandoAtleta && (
+        <div style={{ padding: '20px', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '30px', border: '2px solid #f59e0b' }}>
+          <h3 style={{ margin: '0 0 15px 0', color: '#1e293b' }}>✏️ Atualizar Atleta</h3>
+          <form onSubmit={salvarEdicaoAtleta} style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+            <input type="number" placeholder="Nº" value={novoNumero} onChange={(e) => setNovoNumero(e.target.value)} style={{ ...inputStyle, flex: '0 1 60px' }} />
+            <input type="text" placeholder="Nome" value={novoNome} onChange={(e) => setNovoNome(e.target.value)} required style={inputStyle} />
+            <select value={novaPosicao} onChange={(e) => setNovaPosicao(e.target.value)} style={inputStyle}>
+              <option value="Guarda-Redes">Guarda-Redes</option><option value="Defesa">Defesa</option>
+              <option value="Médio">Médio</option><option value="Avançada">Avançada</option>
+            </select>
+            <button type="submit" style={{ padding: '8px 15px', backgroundColor: '#f59e0b', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Guardar</button>
+            <button type="button" onClick={() => setEditandoAtleta(null)} style={{ padding: '8px 15px', backgroundColor: '#64748b', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancelar</button>
+          </form>
+        </div>
+      )}
+
       <div style={{ marginBottom: '40px' }}>
         <h2 style={{ color: '#0f172a', borderBottom: '2px solid #e2e8f0', paddingBottom: '10px', margin: '0 0 20px 0', fontSize: '1.4em', textAlign: 'center' }}>📅 Calendário</h2>
         {eventos.length === 0 ? <p style={{ textAlign: 'center', color: '#64748b' }}>Sem eventos registados.</p> : agruparEventosPorSemana().map(([semana, lista]) => (
@@ -82,7 +176,15 @@ export default function Dashboard({ onSelecionarEvento, onAtualizarAtletas }: Da
               {lista.map(ev => (
                 <div key={ev.id} style={{ backgroundColor: 'white', borderLeft: `4px solid ${ev.tipo.includes('Jogo') ? '#ef4444' : '#10b981'}`, padding: '15px', borderRadius: '6px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                   <div>
-                    <div style={{ fontWeight: 'bold', color: '#1e293b', fontSize: '1.05em' }}>{new Date(ev.data).toLocaleDateString('pt-PT')}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div style={{ fontWeight: 'bold', color: '#1e293b', fontSize: '1.05em' }}>{new Date(ev.data).toLocaleDateString('pt-PT')}</div>
+                      {user.perfil === 'admin' && (
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button type="button" onClick={() => iniciarEdicaoEvento(ev)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.1em', padding: '0', color: '#f59e0b' }} title="Editar Evento">✏️</button>
+                          <button type="button" onClick={() => removerEvento(ev.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.1em', padding: '0', color: '#ef4444' }} title="Apagar Evento">🗑️</button>
+                        </div>
+                      )}
+                    </div>
                     <div style={{ color: ev.tipo.includes('Jogo') ? '#ef4444' : '#10b981', fontSize: '0.9em', fontWeight: 'bold', marginTop: '6px' }}>{ev.tipo}</div>
                     {ev.adversario && <div style={{ fontSize: '0.85em', color: '#64748b', marginTop: '6px' }}>🆚 {ev.adversario}</div>}
                   </div>
@@ -104,6 +206,7 @@ export default function Dashboard({ onSelecionarEvento, onAtualizarAtletas }: Da
                 <th style={{ padding: '12px 15px', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>Atleta</th>
                 <th style={{ padding: '12px 15px', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>Posição</th>
                 <th style={{ padding: '12px 15px', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>Média Geral</th>
+                {user.perfil === 'admin' && <th style={{ padding: '12px 15px', borderBottom: '1px solid #e2e8f0' }}>Ações</th>}
               </tr>
             </thead>
             <tbody>
@@ -113,6 +216,12 @@ export default function Dashboard({ onSelecionarEvento, onAtualizarAtletas }: Da
                   <td style={{ padding: '12px 15px', borderBottom: '1px solid #f1f5f9', fontWeight: '500', color: '#1e293b', whiteSpace: 'nowrap' }}>{atleta.nome}</td>
                   <td style={{ padding: '12px 15px', borderBottom: '1px solid #f1f5f9', color: '#64748b' }}>{atleta.posicao}</td>
                   <td style={{ padding: '12px 15px', borderBottom: '1px solid #f1f5f9', fontWeight: 'bold', color: '#f59e0b' }}>{atleta.media_geral || '-'}</td>
+                  {user.perfil === 'admin' && (
+                    <td style={{ padding: '12px 15px', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: '8px' }}>
+                      <button type="button" onClick={() => iniciarEdicaoAtleta(atleta)} style={{ padding: '4px 8px', backgroundColor: '#fef3c7', color: '#d97706', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85em' }}>Editar</button>
+                      <button type="button" onClick={() => removerAtleta(atleta.id)} style={{ padding: '4px 8px', backgroundColor: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85em' }}>Remover</button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
