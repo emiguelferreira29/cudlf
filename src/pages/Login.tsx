@@ -21,7 +21,6 @@ export default function Login({ nomeClube, onLoginSuccess }: LoginProps) {
     const userLimpo = username.trim().toLowerCase();
     const senhaLimpa = senha.trim();
 
-    // ilike torna a pesquisa insensível a maiúsculas/minúsculas
     const { data, error } = await supabase
       .from('utilizadores')
       .select('*')
@@ -59,7 +58,7 @@ export default function Login({ nomeClube, onLoginSuccess }: LoginProps) {
             <label style={{ display: 'block', fontSize: '0.85em', color: '#475569', fontWeight: 'bold', marginBottom: '5px' }}>Utilizador</label>
             <input 
               type="text" 
-              placeholder="ex: cunha"
+              placeholder="username"
               value={username} 
               onChange={(e) => setUsername(e.target.value)} 
               required 
