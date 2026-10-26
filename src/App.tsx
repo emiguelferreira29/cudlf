@@ -23,7 +23,6 @@ export default function App() {
   const [erroLogin, setErroLogin] = useState('');
   
   const [relatorio, setRelatorio] = useState<AtletaRelatorio[]>([]);
-  const [loading, setLoading] = useState(false);
 
   // Estados para adicionar atleta
   const [novoNome, setNovoNome] = useState('');
@@ -55,25 +54,21 @@ export default function App() {
   };
 
   const fetchRelatorio = async () => {
-    setLoading(true);
     const { data, error } = await supabase.from('relatorio_atletas').select('*');
     if (!error) setRelatorio(data as AtletaRelatorio[]);
-    setLoading(false);
   };
 
-  // Função para Adicionar Atleta (Apenas Admin)
   const adicionarAtleta = async (e: React.FormEvent) => {
     e.preventDefault();
     const { error } = await supabase.from('atletas').insert([{ nome: novoNome, posicao: novaPosicao }]);
     if (!error) {
       setNovoNome('');
-      fetchRelatorio(); // Atualiza a lista
+      fetchRelatorio();
     } else {
       alert('Erro ao adicionar atleta.');
     }
   };
 
-  // Função para Remover Atleta (Apenas Admin)
   const removerAtleta = async (id: string) => {
     if (window.confirm('Tem a certeza que quer eliminar esta atleta? Todas as suas notas serão apagadas.')) {
       const { error } = await supabase.from('atletas').delete().eq('id', id);
@@ -115,7 +110,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* PAINEL DO DIRETOR: Adicionar Atletas */}
       {user.perfil === 'admin' && (
         <div style={{ marginTop: '20px', padding: '20px', backgroundColor: '#fff3cd', borderRadius: '8px', border: '1px solid #ffeeba' }}>
           <h3 style={{ marginTop: 0 }}>Gestão de Plantel (Diretor)</h3>
