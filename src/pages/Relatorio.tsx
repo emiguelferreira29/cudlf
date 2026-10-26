@@ -12,7 +12,11 @@ export default function Relatorio({ atletas }: RelatorioProps) {
   
   const [tipoView, setTipoView] = useState<'global' | 'individual'>('global');
   const [atletaSelecionada, setAtletaSelecionada] = useState<string>('');
-  const [filtroPeriodo, setFiltroPeriodo] = useState<'semana' | 'mes' | 'epoca'>('mes');
+  
+  const [filtroTipo, setFiltroTipo] = useState<'epoca' | 'mes' | 'semana'>('epoca');
+  const [filtroValor, setFiltroValor] = useState<string>('');
+  const [opcoesSemana, setOpcoesSemana] = useState<string[]>([]);
+  const [opcoesMes, setOpcoesMes] = useState<string[]>([]);
 
   useEffect(() => {
     carregarDados();
@@ -24,19 +28,53 @@ export default function Relatorio({ atletas }: RelatorioProps) {
     }
   }, [atletas]);
 
+  // Garante que quando muda de "mes" para "semana", seleciona logo o primeiro valor disponível
+  useEffect(() => {
+    if (filtroTipo === 'semana' && opcoesSemana.length > 0 && !opcoesSemana.includes(filtroValor)) {
+      setFiltroValor(opcoesSemana[0]);
+    } else if (filtroTipo === 'mes' && opcoesMes.length > 0 && !opcoesMes.includes(filtroValor)) {
+      setFiltroValor(opcoesMes[0]);
+    }
+  }, [filtroTipo, opcoesSemana, opcoesMes]);
+
   const carregarDados = async () => {
-    // Carrega avaliações juntamente com os dados do evento para conseguirmos fazer tabelas individuais e filtrar por datas
     const { data: avData } = await supabase
       .from('avaliacoes')
       .select('nota, motivo, atleta_id, treinador_id, eventos(id, data, tipo, adversario), treinador:utilizadores(nome)');
     
     if (avData) {
       setAvaliacoes(avData);
+      
       const tMap = new Map<string, string>();
+      const semanasMap = new Map<string, string>();
+      const mesesMap = new Map<string, string>();
+
       avData.forEach((av: any) => {
         if (av.treinador?.nome) tMap.set(av.treinador_id, av.treinador.nome.split(' ')[0]);
+        if (av.eventos?.data) {
+          const d = new Date(av.eventos.data);
+          const w = getWeekNumber(d);
+          const yr = d.getFullYear();
+          const mo = d.getMonth() + 1;
+
+          // Chave para ordenação correta
+          const sKey = `${yr}-${w.toString().padStart(2, '0')}`;
+          semanasMap.set(sKey, `Semana ${w} (${yr})`);
+
+          const mKey = `${yr}-${mo.toString().padStart(2, '0')}`;
+          const nomeMes = d.toLocaleString('pt-PT', { month: 'long' });
+          mesesMap.set(mKey, `${nomeMes.charAt(0).toUpperCase() + nomeMes.slice(1)} ${yr}`);
+        }
       });
+
       setTreinadores(Array.from(tMap.entries()).map(([id, nome]) => ({ id, nome })));
+
+      // Ordena do mais recente para o mais antigo
+      const semOrdenadas = Array.from(semanasMap.entries()).sort((a, b) => b[0].localeCompare(a[0])).map(e => e[1]);
+      const mesOrdenados = Array.from(mesesMap.entries()).sort((a, b) => b[0].localeCompare(a[0])).map(e => e[1]);
+
+      setOpcoesSemana(semOrdenadas);
+      setOpcoesMes(mesOrdenados);
     }
   };
 
@@ -48,24 +86,21 @@ export default function Relatorio({ atletas }: RelatorioProps) {
     return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
   };
 
-  // 1. Filtrar as avaliações com base no período selecionado (Semana, Mês, Época)
   const avaliacoesFiltradas = avaliacoes.filter(av => {
     if (!av.eventos) return false;
-    if (filtroPeriodo === 'epoca') return true;
+    if (filtroTipo === 'epoca') return true;
     
     const d = new Date(av.eventos.data);
-    const hoje = new Date();
-    
-    if (filtroPeriodo === 'mes') {
-      return d.getMonth() === hoje.getMonth() && d.getFullYear() === hoje.getFullYear();
+    if (filtroTipo === 'semana') {
+      return `Semana ${getWeekNumber(d)} (${d.getFullYear()})` === filtroValor;
     }
-    if (filtroPeriodo === 'semana') {
-      return getWeekNumber(d) === getWeekNumber(hoje) && d.getFullYear() === hoje.getFullYear();
+    if (filtroTipo === 'mes') {
+      const nomeMes = d.toLocaleString('pt-PT', { month: 'long' });
+      return `${nomeMes.charAt(0).toUpperCase() + nomeMes.slice(1)} ${d.getFullYear()}` === filtroValor;
     }
     return true;
   });
 
-  // 2. Processar a Tabela Global do Plantel
   const atletasComMedias = atletas.map(atleta => {
     const avaliacoesValidas = avaliacoesFiltradas.filter(av => 
       av.atleta_id === atleta.id && (av.nota !== null || av.motivo === 'Falta')
@@ -89,7 +124,6 @@ export default function Relatorio({ atletas }: RelatorioProps) {
     return a.nome.localeCompare(b.nome, 'pt-PT');
   });
 
-  // 3. Processar Dados Individuais
   const atletaSelDados = atletas.find(a => a.id === atletaSelecionada);
   const avaliacoesAtletaIndividual = avaliacoesFiltradas.filter(av => av.atleta_id === atletaSelecionada);
   const avaliacoesValidasIndividual = avaliacoesAtletaIndividual.filter(av => av.nota !== null || av.motivo === 'Falta');
@@ -97,7 +131,6 @@ export default function Relatorio({ atletas }: RelatorioProps) {
   const somaInd = avaliacoesValidasIndividual.reduce((sum, av) => sum + (av.nota !== null ? parseFloat(av.nota) : 0), 0);
   const mediaInd = avaliacoesValidasIndividual.length > 0 ? (somaInd / avaliacoesValidasIndividual.length).toFixed(2) : '-';
 
-  // Agrupar eventos para a tabela individual
   const eventosIndividuaisMap = new Map<string, any>();
   avaliacoesAtletaIndividual.forEach(av => {
     const evId = av.eventos.id;
@@ -130,19 +163,31 @@ export default function Relatorio({ atletas }: RelatorioProps) {
         `}
       </style>
 
-      {/* Controlos Superiores */}
       <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
         <div style={{ display: 'flex', gap: '10px' }}>
           <button onClick={() => setTipoView('global')} style={{ padding: '8px 15px', backgroundColor: tipoView === 'global' ? '#1e293b' : '#cbd5e1', color: tipoView === 'global' ? 'white' : '#334155', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Plantel</button>
           <button onClick={() => setTipoView('individual')} style={{ padding: '8px 15px', backgroundColor: tipoView === 'individual' ? '#1e293b' : '#cbd5e1', color: tipoView === 'individual' ? 'white' : '#334155', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Individual</button>
         </div>
         
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <select value={filtroPeriodo} onChange={(e) => setFiltroPeriodo(e.target.value as any)} style={{ padding: '8px 12px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.95em', fontWeight: '600', color: '#1e293b', cursor: 'pointer' }}>
-            <option value="semana">Esta Semana</option>
-            <option value="mes">Este Mês</option>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value as any)} style={{ padding: '8px 12px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.95em', fontWeight: '600', color: '#1e293b', cursor: 'pointer' }}>
             <option value="epoca">Toda a Época</option>
+            <option value="mes">Por Mês</option>
+            <option value="semana">Por Semana</option>
           </select>
+          
+          {filtroTipo === 'semana' && opcoesSemana.length > 0 && (
+            <select value={filtroValor} onChange={(e) => setFiltroValor(e.target.value)} style={{ padding: '8px 12px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.95em', fontWeight: '600', color: '#1e293b', cursor: 'pointer' }}>
+              {opcoesSemana.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          )}
+          
+          {filtroTipo === 'mes' && opcoesMes.length > 0 && (
+            <select value={filtroValor} onChange={(e) => setFiltroValor(e.target.value)} style={{ padding: '8px 12px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.95em', fontWeight: '600', color: '#1e293b', cursor: 'pointer' }}>
+              {opcoesMes.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+          )}
+
           <button onClick={imprimirPDF} style={{ padding: '8px 15px', backgroundColor: '#dc2626', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px' }}>
             📄 Guardar PDF
           </button>
@@ -153,7 +198,7 @@ export default function Relatorio({ atletas }: RelatorioProps) {
         <div className="print-shadow" style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflowX: 'auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', borderBottom: '2px solid #e2e8f0', paddingBottom: '10px', marginBottom: '20px' }}>
             <h2 style={{ color: '#0f172a', margin: '0' }}>Relatório do Plantel</h2>
-            <span style={{ color: '#64748b', fontWeight: 'bold', fontSize: '0.9em', textTransform: 'uppercase' }}>{filtroPeriodo === 'epoca' ? 'Toda a Época' : (filtroPeriodo === 'mes' ? 'Este Mês' : 'Esta Semana')}</span>
+            <span style={{ color: '#64748b', fontWeight: 'bold', fontSize: '0.9em', textTransform: 'uppercase' }}>{filtroTipo === 'epoca' ? 'Toda a Época' : filtroValor}</span>
           </div>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
@@ -201,7 +246,7 @@ export default function Relatorio({ atletas }: RelatorioProps) {
 
           <div style={{ textAlign: 'center', padding: '30px 20px', border: '2px dashed #cbd5e1', borderRadius: '8px', backgroundColor: '#f8fafc', marginBottom: '30px' }}>
             <div style={{ textTransform: 'uppercase', color: '#94a3b8', fontSize: '0.85em', fontWeight: 'bold', letterSpacing: '1px', marginBottom: '10px' }}>
-              Desempenho • {filtroPeriodo === 'epoca' ? 'Toda a Época' : (filtroPeriodo === 'mes' ? 'Este Mês' : 'Esta Semana')}
+              Desempenho • {filtroTipo === 'epoca' ? 'Toda a Época' : filtroValor}
             </div>
             <h2 style={{ color: '#0f172a', margin: '0 0 5px 0', fontSize: '1.8em' }}>{atletaSelDados?.nome}</h2>
             <div style={{ color: '#64748b', fontSize: '1.1em', marginBottom: '20px' }}>{atletaSelDados?.posicao}</div>
@@ -212,7 +257,6 @@ export default function Relatorio({ atletas }: RelatorioProps) {
             {mediaInd !== '-' && <div style={{ color: '#64748b', fontSize: '0.95em', marginTop: '10px' }}>Média de Pontuação</div>}
           </div>
 
-          {/* Tabela de Eventos Individuais no Período */}
           <div>
             <h3 style={{ color: '#1e293b', fontSize: '1.1em', margin: '0 0 15px 0', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px' }}>Registo de Eventos</h3>
             {eventosIndividuais.length === 0 ? (
@@ -255,7 +299,6 @@ export default function Relatorio({ atletas }: RelatorioProps) {
               </div>
             )}
           </div>
-
         </div>
       )}
     </div>
