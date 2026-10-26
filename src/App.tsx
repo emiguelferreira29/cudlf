@@ -1,122 +1,81 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useEffect, useState } from 'react';
+import { supabase } from './supabase';
 
-function App() {
-  const [count, setCount] = useState(0)
-
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+// Define a estrutura dos dados para o TypeScript
+interface AtletaRelatorio {
+  id: string;
+  nome: string;
+  posicao: string;
+  total_presencas: number;
+  media_geral: number | null;
 }
 
-export default App
+export default function App() {
+  const [relatorio, setRelatorio] = useState<AtletaRelatorio[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Função para ir buscar os dados à View que criámos no SQL
+  const fetchRelatorio = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('relatorio_atletas')
+      .select('*');
+      
+    if (error) console.error("Erro a carregar dados:", error);
+    else setRelatorio(data as AtletaRelatorio[]);
+    
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchRelatorio();
+  }, []);
+
+  return (
+    <div style={{ padding: '20px', fontFamily: 'system-ui, sans-serif', maxWidth: '800px', margin: '0 auto' }}>
+      <h1 style={{ color: '#2c3e50', borderBottom: '2px solid #3498db', paddingBottom: '10px' }}>
+        ⚽ Clube de Futebol Feminino - Avaliações
+      </h1>
+
+      <div style={{ marginTop: '30px' }}>
+        <h2>🏆 Classificação Geral (Média)</h2>
+        
+        {loading ? (
+          <p>A carregar classificações...</p>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#f3f4f6', textAlign: 'left' }}>
+                <th style={{ padding: '12px', borderBottom: '1px solid #ddd' }}>#</th>
+                <th style={{ padding: '12px', borderBottom: '1px solid #ddd' }}>Atleta</th>
+                <th style={{ padding: '12px', borderBottom: '1px solid #ddd' }}>Posição</th>
+                <th style={{ padding: '12px', borderBottom: '1px solid #ddd' }}>Presenças</th>
+                <th style={{ padding: '12px', borderBottom: '1px solid #ddd' }}>Média Final</th>
+              </tr>
+            </thead>
+            <tbody>
+              {relatorio.map((atleta, index) => (
+                <tr key={atleta.id}>
+                  <td style={{ padding: '12px', borderBottom: '1px solid #eee' }}>{index + 1}</td>
+                  <td style={{ padding: '12px', borderBottom: '1px solid #eee', fontWeight: 'bold' }}>{atleta.nome}</td>
+                  <td style={{ padding: '12px', borderBottom: '1px solid #eee' }}>{atleta.posicao}</td>
+                  <td style={{ padding: '12px', borderBottom: '1px solid #eee' }}>{atleta.total_presencas}</td>
+                  <td style={{ padding: '12px', borderBottom: '1px solid #eee', color: '#e67e22', fontWeight: 'bold', fontSize: '1.1em' }}>
+                    {atleta.media_geral ? atleta.media_geral : 'S/ Nota'}
+                  </td>
+                </tr>
+              ))}
+              {relatorio.length === 0 && (
+                <tr>
+                  <td colSpan={5} style={{ padding: '20px', textAlign: 'center' }}>
+                    Ainda não há atletas registadas.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
