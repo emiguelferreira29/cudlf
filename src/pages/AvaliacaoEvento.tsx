@@ -8,15 +8,20 @@ interface AvaliacaoProps {
   atletas: Atleta[];
   onVoltar: () => void;
   onGuardado: () => void;
+  onMudarEvento?: (ev: Evento) => void;
 }
 
 const PESO_POSICAO: Record<string, number> = { 'Guarda-Redes': 1, 'Defesa': 2, 'Médio': 3, 'Avançada': 4 };
 
-export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGuardado }: AvaliacaoProps) {
+export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGuardado, onMudarEvento }: AvaliacaoProps) {
   const [avaliacoes, setAvaliacoes] = useState<Record<string, AvaliacaoInput>>({});
   const [salvando, setSalvando] = useState(false);
   const [avaliacoesGerais, setAvaliacoesGerais] = useState<any[]>([]);
   const [treinadoresEnvolvidos, setTreinadoresEnvolvidos] = useState<Record<string, string>>({});
+  
+  // Estados de navegação cronológica
+  const [eventoAnterior, setEventoAnterior] = useState<Evento | null>(null);
+  const [eventoSeguinte, setEventoSeguinte] = useState<Evento | null>(null);
 
   useEffect(() => {
     if (user.perfil === 'admin') {
@@ -24,7 +29,20 @@ export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGua
     } else {
       carregarNotasExistentes();
     }
+    carregarAdjacentes();
   }, [evento.id]);
+
+  const carregarAdjacentes = async () => {
+    const { data } = await supabase.from('eventos').select('*').order('data', { ascending: true });
+    if (data) {
+      const index = data.findIndex(e => e.id === evento.id);
+      if (index > 0) setEventoAnterior(data[index - 1]);
+      else setEventoAnterior(null);
+      
+      if (index >= 0 && index < data.length - 1) setEventoSeguinte(data[index + 1]);
+      else setEventoSeguinte(null);
+    }
+  };
 
   const carregarNotasExistentes = async () => {
     const { data } = await supabase.from('avaliacoes').select('*').eq('evento_id', evento.id).eq('treinador_id', user.id);
@@ -61,7 +79,7 @@ export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGua
   const removerAvaliacao = async (atletaId: string) => {
     if (!window.confirm('Pretende remover a avaliação desta atleta?')) return;
     const { error } = await supabase.from('avaliacoes').delete().eq('evento_id', evento.id).eq('atleta_id', atletaId).eq('treinador_id', user.id);
-    if (!error) { setAvaliacoes(prev => { const n = { ...prev }; delete n[atletaId]; return n; }); onGuardado(); }
+    if (!error) { setAvaliacoes(prev => { const n = { ...prev }; delete n[atletaId]; return n; }); }
   };
 
   const guardar = async () => {
@@ -78,7 +96,7 @@ export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGua
 
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', backgroundColor: 'white', padding: '16px 20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '15px', backgroundColor: 'white', padding: '16px 20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
         <div>
           <h2 style={{ margin: '0 0 4px 0', color: '#0f172a', fontSize: '1.25em' }}>{user.perfil === 'admin' ? 'Visão Global de Notas' : 'Registo de Notas'}</h2>
           <div style={{ color: '#475569', fontSize: '0.9em' }}>
@@ -87,7 +105,22 @@ export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGua
             {evento.adversario && ` 🆚 ${evento.adversario}`}
           </div>
         </div>
-        <button onClick={onVoltar} style={{ padding: '8px 16px', backgroundColor: '#475569', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '500', fontSize: '0.9em' }}>Voltar</button>
+        
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {eventoAnterior && (
+            <button type="button" onClick={() => onMudarEvento?.(eventoAnterior)} style={{ padding: '8px 12px', backgroundColor: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85em' }}>
+              ⬅️ Anterior
+            </button>
+          )}
+          {eventoSeguinte && (
+            <button type="button" onClick={() => onMudarEvento?.(eventoSeguinte)} style={{ padding: '8px 12px', backgroundColor: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85em' }}>
+              Seguinte ➡️
+            </button>
+          )}
+          <button type="button" onClick={onVoltar} style={{ padding: '8px 16px', backgroundColor: '#475569', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '500', fontSize: '0.9em' }}>
+            Voltar
+          </button>
+        </div>
       </div>
 
       {user.perfil === 'admin' ? (
@@ -96,8 +129,8 @@ export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGua
             <thead style={{ backgroundColor: '#f8fafc' }}>
               <tr>
                 <th style={{ padding: '12px 15px', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>Atleta</th>
-                {Object.values(treinadoresEnvolvidos).map(nomeTreinador => (
-                  <th key={nomeTreinador} style={{ padding: '12px 15px', borderBottom: '1px solid #e2e8f0', color: '#475569', textAlign: 'center' }}>{nomeTreinador}</th>
+                {Object.values(treinadoresEnvolvidos).map((nomeTreinador, idx) => (
+                  <th key={idx} style={{ padding: '12px 15px', borderBottom: '1px solid #e2e8f0', color: '#475569', textAlign: 'center' }}>{nomeTreinador}</th>
                 ))}
                 <th style={{ padding: '12px 15px', borderBottom: '1px solid #e2e8f0', color: '#0f172a', fontWeight: 'bold', textAlign: 'center' }}>Média Evento</th>
               </tr>

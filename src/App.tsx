@@ -170,6 +170,7 @@ export default function App() {
             atletas={atletas}
             onVoltar={irParaDashboard}
             onGuardado={irParaDashboard}
+            onMudarEvento={selecionarEvento} 
           />
         )}
 
