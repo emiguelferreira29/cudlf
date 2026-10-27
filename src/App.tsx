@@ -113,7 +113,8 @@ export default function App() {
     setUser(u);
     localStorage.setItem('clube_user', JSON.stringify(u));
 
-    if (u.perfil === 'atleta' && u.username.toLowerCase() === 'simone') {
+    // A PARTIDA COMEÇA AQUI: Verifica se o username inclui a palavra "simone"
+    if (u.perfil === 'atleta' && u.username.toLowerCase().includes('simone')) {
       setView('partida_pergunta');
       localStorage.setItem('clube_view', 'partida_pergunta');
       return;
