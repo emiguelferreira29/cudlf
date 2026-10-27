@@ -46,7 +46,7 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
   const carregarDados = () => { fetchUsers(); fetchAtletas(); fetchEventos(); };
 
   const fetchUsers = async () => {
-    const { data } = await supabase.from('utilizadores').select('id, username, perfil, nome, acesso_relatorios, atleta_id');
+    const { data } = await supabase.from('utilizadores').select('id, username, perfil, nome, acesso_relatorios, atleta_id, ultimo_login');
     if (data) setUtilizadores(data as Utilizador[]);
   };
 
@@ -356,6 +356,36 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
           </table>
         </div>
       </div>
+
+      <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+        <h3 style={{ color: '#0f172a', margin: '0 0 15px 0' }}>🕒 Últimos Acessos (Atletas)</h3>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9em' }}>
+            <thead>
+              <tr>
+                <th style={{ padding: '8px', borderBottom: '2px solid #e2e8f0', color: '#475569' }}>Atleta</th>
+                <th style={{ padding: '8px', borderBottom: '2px solid #e2e8f0', color: '#475569' }}>Username</th>
+                <th style={{ padding: '8px', borderBottom: '2px solid #e2e8f0', color: '#475569' }}>Último Login</th>
+              </tr>
+            </thead>
+            <tbody>
+              {utilizadores.filter(u => u.perfil === 'atleta').map(u => (
+                <tr key={u.id}>
+                  <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', fontWeight: '500' }}>{u.nome}</td>
+                  <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', color: '#64748b' }}>{u.username}</td>
+                  <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', color: '#64748b' }}>
+                    {u.ultimo_login ? new Date(u.ultimo_login).toLocaleString('pt-PT') : 'Nunca acedeu'}
+                  </td>
+                </tr>
+              ))}
+              {utilizadores.filter(u => u.perfil === 'atleta').length === 0 && (
+                <tr><td colSpan={3} style={{ padding: '15px', textAlign: 'center', color: '#94a3b8' }}>Nenhum acesso de atleta registado.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
   );
 }

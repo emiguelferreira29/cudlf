@@ -19,6 +19,7 @@ export interface Utilizador {
   nome: string;
   acesso_relatorios?: boolean;
   atleta_id?: string;
+  ultimo_login?: string;
 }
 
 export interface Evento {

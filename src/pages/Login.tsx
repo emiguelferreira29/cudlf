@@ -28,13 +28,16 @@ export default function Login({ nomeClube, onLoginSuccess }: LoginProps) {
       .eq('senha', senhaLimpa)
       .single();
 
-    setCarregando(false);
-
     if (error || !data) {
       setErro('Credenciais inválidas. Verifique o utilizador e a senha.');
+      setCarregando(false);
       return;
     }
 
+    // Regista a data e hora exatas deste acesso na base de dados
+    await supabase.from('utilizadores').update({ ultimo_login: new Date().toISOString() }).eq('id', data.id);
+
+    setCarregando(false);
     onLoginSuccess(data as Utilizador);
   };
 
@@ -56,35 +59,13 @@ export default function Login({ nomeClube, onLoginSuccess }: LoginProps) {
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           <div>
             <label style={{ display: 'block', fontSize: '0.85em', color: '#475569', fontWeight: 'bold', marginBottom: '5px' }}>Utilizador</label>
-            <input 
-              type="text" 
-              placeholder="username"
-              value={username} 
-              onChange={(e) => setUsername(e.target.value)} 
-              required 
-              autoCapitalize="none"
-              autoCorrect="off"
-              style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.95em', boxSizing: 'border-box' }}
-            />
+            <input type="text" placeholder="username" value={username} onChange={(e) => setUsername(e.target.value)} required autoCapitalize="none" autoCorrect="off" style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.95em', boxSizing: 'border-box' }} />
           </div>
-
           <div>
             <label style={{ display: 'block', fontSize: '0.85em', color: '#475569', fontWeight: 'bold', marginBottom: '5px' }}>Palavra-passe</label>
-            <input 
-              type="password" 
-              placeholder="••••••••"
-              value={senha} 
-              onChange={(e) => setSenha(e.target.value)} 
-              required 
-              style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.95em', boxSizing: 'border-box' }}
-            />
+            <input type="password" placeholder="••••••••" value={senha} onChange={(e) => setSenha(e.target.value)} required style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.95em', boxSizing: 'border-box' }} />
           </div>
-
-          <button 
-            type="submit" 
-            disabled={carregando}
-            style={{ marginTop: '10px', width: '100%', padding: '12px', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', fontSize: '1em', cursor: carregando ? 'not-allowed' : 'pointer', opacity: carregando ? 0.7 : 1 }}
-          >
+          <button type="submit" disabled={carregando} style={{ marginTop: '10px', width: '100%', padding: '12px', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', fontSize: '1em', cursor: carregando ? 'not-allowed' : 'pointer', opacity: carregando ? 0.7 : 1 }}>
             {carregando ? 'A entrar...' : 'Entrar'}
           </button>
         </form>
