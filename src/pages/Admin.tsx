@@ -31,7 +31,9 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
   const [novoNumero, setNovoNumero] = useState('');
   const [novoNomeAtleta, setNovoNomeAtleta] = useState('');
   const [novaPosicao, setNovaPosicao] = useState('Guarda-Redes');
-  const [novaFoto, setNovaFoto] = useState(''); // NOVO CAMPO DE FOTO
+  const [novaFoto, setNovaFoto] = useState(''); // Guarda a URL atual
+  const [fotoFile, setFotoFile] = useState<File | null>(null); // Guarda o ficheiro de upload
+  const [salvandoAtleta, setSalvandoAtleta] = useState(false);
   const [editandoAtleta, setEditandoAtleta] = useState<string | null>(null);
 
   // Formulários Eventos
@@ -85,7 +87,6 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
   const guardarAcessoAtleta = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!atletaAcesso) return;
-
     const userExistente = utilizadores.find(u => u.atleta_id === atletaAcesso.id);
     const usernameFinal = loginAtletaUsername.trim().toLowerCase();
     const senhaFinal = loginAtletaSenha.trim();
@@ -116,15 +117,35 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
   const alternarAcessoRelatorio = async (id: string, estadoAtual: boolean) => { await supabase.from('utilizadores').update({ acesso_relatorios: !estadoAtual }).eq('id', id); fetchUsers(); };
   const guardarClube = async (e: React.FormEvent) => { e.preventDefault(); const { error } = await supabase.from('configuracoes').update({ valor: inputNome }).eq('chave', 'nome_clube'); if (!error) { alert('Nome guardado!'); onNomeClubeAtualizado(); } };
 
-  // --- Lógica Plantel (com foto) ---
+  // --- Lógica Plantel (com Upload de Ficheiro) ---
   const salvarAtleta = async (e: React.FormEvent) => {
     e.preventDefault();
-    const dados = { numero: novoNumero ? parseInt(novoNumero) : null, nome: novoNomeAtleta, posicao: novaPosicao, foto_url: novaFoto };
+    setSalvandoAtleta(true);
+    let urlFinal = novaFoto; // Mantém a URL antiga se não fizer upload de uma nova
+
+    if (fotoFile) {
+      const fileExt = fotoFile.name.split('.').pop();
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage.from('fotos').upload(fileName, fotoFile);
+
+      if (uploadError) {
+        alert('Erro a carregar a imagem: ' + uploadError.message);
+        setSalvandoAtleta(false);
+        return;
+      }
+      
+      const { data: publicUrlData } = supabase.storage.from('fotos').getPublicUrl(fileName);
+      urlFinal = publicUrlData.publicUrl;
+    }
+
+    const dados = { numero: novoNumero ? parseInt(novoNumero) : null, nome: novoNomeAtleta, posicao: novaPosicao, foto_url: urlFinal };
     if (editandoAtleta) await supabase.from('atletas').update(dados).eq('id', editandoAtleta);
     else await supabase.from('atletas').insert([dados]);
-    setNovoNumero(''); setNovoNomeAtleta(''); setNovaPosicao('Guarda-Redes'); setNovaFoto(''); setEditandoAtleta(null); fetchAtletas();
+    
+    setNovoNumero(''); setNovoNomeAtleta(''); setNovaPosicao('Guarda-Redes'); setNovaFoto(''); setFotoFile(null); setEditandoAtleta(null); setSalvandoAtleta(false); fetchAtletas();
   };
-  const iniciarEdicaoAtleta = (a: Atleta) => { setEditandoAtleta(a.id); setNovoNumero(a.numero?.toString() || ''); setNovoNomeAtleta(a.nome); setNovaPosicao(a.posicao); setNovaFoto(a.foto_url || ''); };
+
+  const iniciarEdicaoAtleta = (a: Atleta) => { setEditandoAtleta(a.id); setNovoNumero(a.numero?.toString() || ''); setNovoNomeAtleta(a.nome); setNovaPosicao(a.posicao); setNovaFoto(a.foto_url || ''); setFotoFile(null); };
   const removerAtleta = async (id: string) => { if (window.confirm('Apagar atleta?')) { await supabase.from('atletas').delete().eq('id', id); fetchAtletas(); } };
 
   const salvarEvento = async (e: React.FormEvent) => {
@@ -165,9 +186,7 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15,23,42,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
           <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '10px', maxWidth: '400px', width: '100%', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
             <h3 style={{ margin: '0 0 8px 0', color: '#0f172a' }}>🔑 Acesso de Atleta</h3>
-            <p style={{ color: '#64748b', fontSize: '0.9em', margin: '0 0 15px 0' }}>
-              Defina as credenciais para <strong>{atletaAcesso.nome}</strong> aceder à sua pontuação individual.
-            </p>
+            <p style={{ color: '#64748b', fontSize: '0.9em', margin: '0 0 15px 0' }}>Defina as credenciais para <strong>{atletaAcesso.nome}</strong> aceder à sua pontuação individual.</p>
             <form onSubmit={guardarAcessoAtleta} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div>
                 <label style={{ fontSize: '0.8em', color: '#475569', fontWeight: 'bold' }}>Username de Login:</label>
@@ -196,16 +215,31 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
 
       <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: editandoAtleta ? '2px solid #f59e0b' : 'none' }}>
         <h3 style={{ color: '#0f172a', margin: '0 0 15px 0' }}>👥 {editandoAtleta ? 'Editar Atleta' : 'Gestão de Plantel'}</h3>
-        <form onSubmit={salvarAtleta} style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #e2e8f0' }}>
-          <input type="number" placeholder="Nº" value={novoNumero} onChange={(e) => setNovoNumero(e.target.value)} style={{ ...inputStyle, flex: '0 1 70px' }} />
-          <input type="text" placeholder="Nome da Atleta" value={novoNomeAtleta} onChange={(e) => setNovoNomeAtleta(e.target.value)} required style={inputStyle} />
-          <select value={novaPosicao} onChange={(e) => setNovaPosicao(e.target.value)} style={inputStyle}>
-            <option value="Guarda-Redes">Guarda-Redes</option><option value="Defesa">Defesa</option>
-            <option value="Médio">Médio</option><option value="Avançada">Avançada</option>
-          </select>
-          <input type="url" placeholder="URL da Fotografia (Opcional)" value={novaFoto} onChange={(e) => setNovaFoto(e.target.value)} style={{ ...inputStyle, flex: '1 1 200px' }} />
-          <button type="submit" style={{ padding: '8px 15px', backgroundColor: editandoAtleta ? '#f59e0b' : '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>{editandoAtleta ? 'Atualizar' : 'Adicionar Atleta'}</button>
-          {editandoAtleta && <button type="button" onClick={() => {setEditandoAtleta(null); setNovoNumero(''); setNovoNomeAtleta(''); setNovaFoto('');}} style={{ padding: '8px 15px', backgroundColor: '#64748b', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancelar</button>}
+        <form onSubmit={salvarAtleta} style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #e2e8f0', alignItems: 'flex-end' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '0 1 70px' }}>
+            <label style={{ fontSize: '0.8em', color: '#64748b' }}>Número</label>
+            <input type="number" placeholder="Nº" value={novoNumero} onChange={(e) => setNovoNumero(e.target.value)} style={inputStyle} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 150px' }}>
+            <label style={{ fontSize: '0.8em', color: '#64748b' }}>Nome</label>
+            <input type="text" placeholder="Nome da Atleta" value={novoNomeAtleta} onChange={(e) => setNovoNomeAtleta(e.target.value)} required style={inputStyle} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 140px' }}>
+            <label style={{ fontSize: '0.8em', color: '#64748b' }}>Posição</label>
+            <select value={novaPosicao} onChange={(e) => setNovaPosicao(e.target.value)} style={inputStyle}>
+              <option value="Guarda-Redes">Guarda-Redes</option><option value="Defesa">Defesa</option>
+              <option value="Médio">Médio</option><option value="Avançada">Avançada</option>
+            </select>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 200px' }}>
+            <label style={{ fontSize: '0.8em', color: '#64748b' }}>{editandoAtleta && novaFoto ? 'Substituir Foto' : 'Adicionar Foto'}</label>
+            <input type="file" accept="image/*" onChange={(e) => setFotoFile(e.target.files ? e.target.files[0] : null)} style={{ ...inputStyle, padding: '5px' }} />
+          </div>
+          
+          <button type="submit" disabled={salvandoAtleta} style={{ padding: '8px 15px', backgroundColor: editandoAtleta ? '#f59e0b' : '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: salvandoAtleta ? 'not-allowed' : 'pointer', opacity: salvandoAtleta ? 0.7 : 1, height: '36px' }}>
+            {salvandoAtleta ? 'A Guardar...' : (editandoAtleta ? 'Atualizar' : 'Adicionar')}
+          </button>
+          {editandoAtleta && <button type="button" onClick={() => {setEditandoAtleta(null); setNovoNumero(''); setNovoNomeAtleta(''); setNovaFoto(''); setFotoFile(null);}} style={{ padding: '8px 15px', backgroundColor: '#64748b', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', height: '36px' }}>Cancelar</button>}
         </form>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9em' }}>
@@ -243,7 +277,7 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
         </div>
       </div>
 
-      {/* EVENTOS (Igual) */}
+      {/* EVENTOS E UTILIZADORES INALTERADOS */}
       <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: editandoEvento ? '2px solid #3b82f6' : 'none' }}>
         <h3 style={{ color: '#0f172a', margin: '0 0 15px 0' }}>📅 {editandoEvento ? 'Editar Evento' : 'Gestão de Eventos'}</h3>
         <form onSubmit={salvarEvento} style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
@@ -299,7 +333,6 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
         </div>
       </div>
 
-      {/* UTILIZADORES (Igual) */}
       <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
         <h3 style={{ color: '#0f172a', margin: '0 0 15px 0' }}>🔒 Equipa Técnica e Direção</h3>
         <form onSubmit={adicionarUser} style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #e2e8f0' }}>
@@ -338,9 +371,7 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
                   </td>
                   <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: '5px' }}>
                     <button onClick={() => mudarSenha(u.id)} style={{ ...btnAcao, backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1' }}>Mudar Senha</button>
-                    {u.perfil !== 'admin' && (
-                      <button onClick={() => removerUser(u.id)} style={{ ...btnAcao, backgroundColor: '#fee2e2', color: '#ef4444' }}>Remover</button>
-                    )}
+                    {u.perfil !== 'admin' && <button onClick={() => removerUser(u.id)} style={{ ...btnAcao, backgroundColor: '#fee2e2', color: '#ef4444' }}>Remover</button>}
                   </td>
                 </tr>
               ))}
@@ -348,7 +379,6 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
           </table>
         </div>
       </div>
-      
     </div>
   );
 }
