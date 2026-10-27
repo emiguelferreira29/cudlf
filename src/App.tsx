@@ -113,7 +113,6 @@ export default function App() {
     setUser(u);
     localStorage.setItem('clube_user', JSON.stringify(u));
 
-    // A PARTIDA COMEÇA AQUI: Verifica se o username inclui a palavra "simone"
     if (u.perfil === 'atleta' && u.username.toLowerCase().includes('simone')) {
       setView('partida_pergunta');
       localStorage.setItem('clube_view', 'partida_pergunta');
@@ -191,7 +190,7 @@ export default function App() {
             <h2 style={{ color: '#0f172a', margin: '0 0 20px 0' }}>Tinhas de ser curiosa... 🤣</h2>
             
             <img 
-              src="/surpresa-simone.jpg" 
+              src="https://drive.google.com/uc?export=view&id=1FFrxwnBVE0O-XGE94IBr3nuwqna0i9e4" 
               alt="Surpresa" 
               style={{ maxWidth: '100%', maxHeight: '50vh', borderRadius: '12px', boxShadow: '0 4px 10px rgba(0,0,0,0.15)', objectFit: 'contain' }} 
             />
