@@ -24,9 +24,10 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
     const { data: atletaData } = await supabase.from('atletas').select('*').eq('id', atletaId).single();
     if (atletaData) setAtleta(atletaData);
 
+    // Agora pedimos também o estado "fechado" do evento à base de dados
     const { data: avData } = await supabase
       .from('avaliacoes')
-      .select('nota, motivo, eventos(id, data, tipo, adversario)')
+      .select('nota, motivo, eventos(id, data, tipo, adversario, fechado)')
       .eq('atleta_id', atletaId);
 
     if (avData) setAvaliacoes(avData);
@@ -41,7 +42,6 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
     return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
   };
 
-  // Filtrar avaliações pelo período selecionado
   const avaliacoesFiltradas = avaliacoes.filter(av => {
     if (!av.eventos?.data) return false;
     if (periodo === 'epoca') return true;
@@ -58,7 +58,6 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
     return true;
   });
 
-  // Consolidar notas por evento (média única quando há 2 treinadores)
   const eventosMap = new Map<string, { evento: any; notas: number[]; motivos: string[] }>();
   avaliacoesFiltradas.forEach(av => {
     const ev = av.eventos;
@@ -66,10 +65,14 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
       eventosMap.set(ev.id, { evento: ev, notas: [], motivos: [] });
     }
     const item = eventosMap.get(ev.id)!;
-    if (av.nota !== null) {
-      item.notas.push(parseFloat(av.nota));
-    } else if (av.motivo) {
-      item.motivos.push(av.motivo);
+    
+    // SÓ ACUMULA AS NOTAS SE O EVENTO ESTIVER FECHADO PELO DIRETOR
+    if (ev.fechado) {
+      if (av.nota !== null) {
+        item.notas.push(parseFloat(av.nota));
+      } else if (av.motivo) {
+        item.motivos.push(av.motivo);
+      }
     }
   });
 
@@ -77,10 +80,12 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
     let notaFinal: string | null = null;
     let motivoFinal: string | null = null;
 
-    if (notas.length > 0) {
-      notaFinal = (notas.reduce((a, b) => a + b, 0) / notas.length).toFixed(1);
-    } else if (motivos.length > 0) {
-      motivoFinal = motivos[0];
+    if (evento.fechado) {
+      if (notas.length > 0) {
+        notaFinal = (notas.reduce((a, b) => a + b, 0) / notas.length).toFixed(1);
+      } else if (motivos.length > 0) {
+        motivoFinal = motivos[0];
+      }
     }
 
     return {
@@ -88,22 +93,25 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
       data: evento.data,
       tipo: evento.tipo,
       adversario: evento.adversario,
+      fechado: evento.fechado,
       notaFinal,
       motivoFinal
     };
   }).sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
 
-  // Média Geral
-  const avaliacoesValidasPeriodo = avaliacoesFiltradas.filter(av => av.nota !== null || av.motivo === 'Falta');
+  // MÉDIA GERAL (Ignora eventos que ainda não foram fechados)
+  const avaliacoesValidasPeriodo = avaliacoesFiltradas.filter(av => 
+    av.eventos.fechado && (av.nota !== null || av.motivo === 'Falta')
+  );
+  
   const somaTotal = avaliacoesValidasPeriodo.reduce((sum, av) => sum + (av.nota !== null ? parseFloat(av.nota) : 0), 0);
   const mediaPeriodo = avaliacoesValidasPeriodo.length > 0 ? (somaTotal / avaliacoesValidasPeriodo.length).toFixed(2) : '-';
 
-  // Dados cronológicos (do mais antigo para o mais recente) para desenhar o gráfico
+  // GRÁFICO (Apenas com eventos fechados)
   const dadosGrafico = [...listaEventos]
-    .filter(e => e.notaFinal !== null)
+    .filter(e => e.fechado && e.notaFinal !== null)
     .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
 
-  // Configurações do gráfico SVG
   const chartWidth = 500;
   const chartHeight = 180;
   const paddingX = 45;
@@ -116,7 +124,6 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
       ? chartWidth / 2 
       : paddingX + (i / (dadosGrafico.length - 1)) * graphW;
     const nota = parseFloat(d.notaFinal!);
-    // Mapeia nota 0-10 para o eixo Y invertido do SVG
     const y = paddingY + graphH - (nota / 10) * graphH;
     return { x, y, nota, data: d.data };
   });
@@ -186,11 +193,11 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
 
         {dadosGrafico.length === 0 ? (
           <div style={{ padding: '30px', textAlign: 'center', color: '#94a3b8', fontSize: '0.9em' }}>
-            Sem notas atribuídas neste período para desenhar o gráfico.
+            Sem notas publicadas neste período para desenhar o gráfico.
           </div>
         ) : dadosGrafico.length === 1 ? (
           <div style={{ padding: '25px', textAlign: 'center', color: '#64748b', fontSize: '0.9em', backgroundColor: '#f8fafc', borderRadius: '8px' }}>
-            Apenas tens 1 pontuação ({dadosGrafico[0].notaFinal}) neste período. Adiciona mais eventos para veres a linha de evolução.
+            Apenas tens 1 pontuação publicada ({dadosGrafico[0].notaFinal}) neste período. O gráfico de linha aparecerá quando tiveres mais eventos fechados.
           </div>
         ) : (
           <div style={{ width: '100%', overflowX: 'auto' }}>
@@ -202,7 +209,6 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
                 </linearGradient>
               </defs>
 
-              {/* Linhas horizontais de referência (Notas 0, 5, 10) */}
               {[0, 5, 10].map(val => {
                 const y = paddingY + graphH - (val / 10) * graphH;
                 return (
@@ -215,13 +221,9 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
                 );
               })}
 
-              {/* Área com gradiente suave por baixo da curva */}
               <path d={caminhoArea} fill="url(#degradeNota)" />
-
-              {/* Linha principal de evolução */}
               <path d={caminhoLinha} fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
 
-              {/* Marcadores circulares e valores pontuais */}
               {coordenadasPontos.map((p, i) => (
                 <g key={i}>
                   <circle cx={p.x} cy={p.y} r="5" fill="white" stroke="#10b981" strokeWidth="3" />
@@ -244,7 +246,7 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
 
         {listaEventos.length === 0 ? (
           <div style={{ backgroundColor: 'white', padding: '25px', textAlign: 'center', color: '#64748b', borderRadius: '8px' }}>
-            Ainda não existem registos de notas para este período.
+            Ainda não existem registos no teu histórico para este período.
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -263,13 +265,19 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
                   </div>
 
                   <div>
-                    {ev.notaFinal !== null ? (
-                      <span style={{ fontSize: '1.2em', fontWeight: 'bold', color: '#f59e0b', backgroundColor: '#fef3c7', padding: '6px 12px', borderRadius: '8px' }}>
-                        {ev.notaFinal}
-                      </span>
+                    {ev.fechado ? (
+                      ev.notaFinal !== null ? (
+                        <span style={{ fontSize: '1.2em', fontWeight: 'bold', color: '#f59e0b', backgroundColor: '#fef3c7', padding: '6px 12px', borderRadius: '8px' }}>
+                          {ev.notaFinal}
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '0.8em', fontWeight: '600', color: ev.motivoFinal === 'Falta' ? '#ef4444' : '#64748b', backgroundColor: '#f1f5f9', padding: '6px 10px', borderRadius: '6px' }}>
+                          {ev.motivoFinal || '-'}
+                        </span>
+                      )
                     ) : (
-                      <span style={{ fontSize: '0.8em', fontWeight: '600', color: ev.motivoFinal === 'Falta' ? '#ef4444' : '#64748b', backgroundColor: '#f1f5f9', padding: '6px 10px', borderRadius: '6px' }}>
-                        {ev.motivoFinal || '-'}
+                      <span style={{ fontSize: '0.8em', fontWeight: '600', color: '#64748b', backgroundColor: '#f1f5f9', padding: '6px 10px', borderRadius: '6px' }}>
+                        🔒 Em avaliação
                       </span>
                     )}
                   </div>
