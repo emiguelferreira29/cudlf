@@ -9,7 +9,7 @@ import Admin from './pages/Admin';
 import Relatorio from './pages/Relatorio';
 import PainelAtleta from './pages/PainelAtleta';
 
-type ViewState = 'login' | 'dashboard' | 'admin' | 'evento' | 'relatorio' | 'atleta' | 'partida_pergunta' | 'partida_nao' | 'partida_sim';
+type ViewState = 'login' | 'dashboard' | 'admin' | 'evento' | 'relatorio' | 'atleta';
 
 export default function App() {
   const [user, setUser] = useState<Utilizador | null>(() => {
@@ -31,11 +31,11 @@ export default function App() {
     
     try {
       const u = JSON.parse(utilizadorSalvo);
-      if (u.perfil === 'atleta' && !['partida_pergunta', 'partida_nao', 'partida_sim'].includes(viewSalva)) return 'atleta';
+      if (u.perfil === 'atleta') return 'atleta';
     } catch {}
 
     if (viewSalva === 'evento' && eventoSalvo) return 'evento';
-    if (['dashboard', 'admin', 'relatorio', 'partida_pergunta', 'partida_nao', 'partida_sim'].includes(viewSalva)) return viewSalva;
+    if (['dashboard', 'admin', 'relatorio'].includes(viewSalva)) return viewSalva;
     return 'dashboard';
   });
 
@@ -113,12 +113,6 @@ export default function App() {
     setUser(u);
     localStorage.setItem('clube_user', JSON.stringify(u));
 
-    if (u.perfil === 'atleta' && u.username.toLowerCase().includes('simone')) {
-      setView('partida_pergunta');
-      localStorage.setItem('clube_view', 'partida_pergunta');
-      return;
-    }
-
     if (u.perfil === 'atleta') {
       setView('atleta');
       localStorage.setItem('clube_view', 'atleta');
@@ -164,45 +158,6 @@ export default function App() {
       </header>
 
       <main style={{ maxWidth: '1000px', margin: '0 auto', padding: '20px' }}>
-        
-        {view === 'partida_pergunta' && (
-          <div style={{ backgroundColor: 'white', padding: '40px', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', textAlign: 'center', marginTop: '10vh' }}>
-            <div style={{ fontSize: '4em', marginBottom: '20px' }}>🤔</div>
-            <h2 style={{ color: '#0f172a', fontSize: '1.8em', marginBottom: '10px' }}>Tens a certeza que queres entrar, Simone?</h2>
-            <h3 style={{ color: '#ef4444', fontSize: '1.3em', marginTop: '0' }}>A tua pontuação é muito má!</h3>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '40px' }}>
-              <button onClick={() => irParaView('partida_sim')} style={{ padding: '12px 40px', fontSize: '1.1em', fontWeight: 'bold', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(16,185,129,0.3)' }}>Sim</button>
-              <button onClick={() => irParaView('partida_nao')} style={{ padding: '12px 40px', fontSize: '1.1em', fontWeight: 'bold', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(239,68,68,0.3)' }}>Não</button>
-            </div>
-          </div>
-        )}
-
-        {view === 'partida_nao' && (
-          <div style={{ textAlign: 'center', marginTop: '15vh', animation: 'fadeIn 0.5s' }}>
-            <h1 style={{ fontSize: '3em', color: '#0f172a', margin: '0' }}>Decisão acertada 😂</h1>
-            <p style={{ color: '#64748b', fontSize: '1.2em', marginTop: '10px' }}>Mais vale não ver para não chorar!</p>
-            <button onClick={fazerLogout} style={{ marginTop: '30px', padding: '10px 25px', fontSize: '1.1em', backgroundColor: '#334155', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Sair e tentar outro dia</button>
-          </div>
-        )}
-
-        {view === 'partida_sim' && (
-          <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', textAlign: 'center', marginTop: '5vh' }}>
-            <h2 style={{ color: '#0f172a', margin: '0 0 20px 0' }}>Tinhas de ser curiosa... 🤣</h2>
-            
-            <img 
-              src="/simone.jpg" 
-              alt="Surpresa" 
-              style={{ maxWidth: '100%', maxHeight: '50vh', borderRadius: '12px', boxShadow: '0 4px 10px rgba(0,0,0,0.15)', objectFit: 'contain' }} 
-            />
-            
-            <div style={{ marginTop: '30px' }}>
-              <button onClick={() => { setView('atleta'); localStorage.setItem('clube_view', 'atleta'); }} style={{ padding: '12px 25px', fontSize: '1em', fontWeight: 'bold', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
-                Pronto, quero ir para o meu painel a sério 😅
-              </button>
-            </div>
-          </div>
-        )}
-
         {user.perfil === 'atleta' && view === 'atleta' && <PainelAtleta user={user} />}
         {user.perfil !== 'atleta' && view === 'dashboard' && <Dashboard user={user} onSelecionarEvento={selecionarEvento} onAtualizarAtletas={(lista) => setAtletas(lista)} />}
         {user.perfil !== 'atleta' && view === 'evento' && eventoSelecionado && <AvaliacaoEvento evento={eventoSelecionado} user={user} atletas={atletas} onVoltar={irParaDashboard} onMudarEvento={selecionarEvento} />}
