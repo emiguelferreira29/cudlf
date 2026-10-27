@@ -190,7 +190,7 @@ export default function App() {
             <h2 style={{ color: '#0f172a', margin: '0 0 20px 0' }}>Tinhas de ser curiosa... 🤣</h2>
             
             <img 
-              src="https://drive.google.com/uc?export=view&id=1FFrxwnBVE0O-XGE94IBr3nuwqna0i9e4" 
+              src="/simone.jpg" 
               alt="Surpresa" 
               style={{ maxWidth: '100%', maxHeight: '50vh', borderRadius: '12px', boxShadow: '0 4px 10px rgba(0,0,0,0.15)', objectFit: 'contain' }} 
             />
