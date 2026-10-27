@@ -24,7 +24,6 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
     const { data: atletaData } = await supabase.from('atletas').select('*').eq('id', atletaId).single();
     if (atletaData) setAtleta(atletaData);
 
-    // Agora pedimos também o estado "fechado" do evento à base de dados
     const { data: avData } = await supabase
       .from('avaliacoes')
       .select('nota, motivo, eventos(id, data, tipo, adversario, fechado)')
@@ -66,7 +65,6 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
     }
     const item = eventosMap.get(ev.id)!;
     
-    // SÓ ACUMULA AS NOTAS SE O EVENTO ESTIVER FECHADO PELO DIRETOR
     if (ev.fechado) {
       if (av.nota !== null) {
         item.notas.push(parseFloat(av.nota));
@@ -99,7 +97,6 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
     };
   }).sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
 
-  // MÉDIA GERAL (Ignora eventos que ainda não foram fechados)
   const avaliacoesValidasPeriodo = avaliacoesFiltradas.filter(av => 
     av.eventos.fechado && (av.nota !== null || av.motivo === 'Falta')
   );
@@ -107,7 +104,6 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
   const somaTotal = avaliacoesValidasPeriodo.reduce((sum, av) => sum + (av.nota !== null ? parseFloat(av.nota) : 0), 0);
   const mediaPeriodo = avaliacoesValidasPeriodo.length > 0 ? (somaTotal / avaliacoesValidasPeriodo.length).toFixed(2) : '-';
 
-  // GRÁFICO (Apenas com eventos fechados)
   const dadosGrafico = [...listaEventos]
     .filter(e => e.fechado && e.notaFinal !== null)
     .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
@@ -143,38 +139,36 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
   return (
     <div style={{ maxWidth: '650px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
       
-      {/* CARTÃO DE PERFIL E MÉDIA */}
       <div style={{ backgroundColor: 'white', padding: '25px 20px', borderRadius: '12px', boxShadow: '0 2px 6px rgba(0,0,0,0.06)', textAlign: 'center' }}>
-        <div style={{ fontSize: '2em', marginBottom: '8px' }}>👤</div>
+        {atleta?.foto_url ? (
+          <img 
+            src={atleta.foto_url} 
+            alt={atleta.nome} 
+            style={{ width: '90px', height: '90px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #f1f5f9', boxShadow: '0 2px 5px rgba(0,0,0,0.1)', marginBottom: '10px' }} 
+            onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML += '<div style="font-size: 3em; margin-bottom: 8px;">👤</div>'; }}
+          />
+        ) : (
+          <div style={{ fontSize: '3em', marginBottom: '8px' }}>👤</div>
+        )}
+        
         <h2 style={{ color: '#0f172a', margin: '0 0 4px 0' }}>{atleta?.nome}</h2>
         <div style={{ color: '#64748b', fontSize: '0.9em', fontWeight: '500' }}>
           {atleta?.numero ? `Nº ${atleta.numero} • ` : ''}{atleta?.posicao}
         </div>
 
-        {/* SELETOR DE PERÍODO */}
         <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '20px', flexWrap: 'wrap' }}>
           {(['epoca', 'mes', 'semana'] as const).map(p => (
             <button 
               key={p}
               type="button" 
               onClick={() => setPeriodo(p)} 
-              style={{ 
-                padding: '6px 14px', 
-                borderRadius: '20px', 
-                border: 'none', 
-                cursor: 'pointer', 
-                fontSize: '0.85em', 
-                fontWeight: '600', 
-                backgroundColor: periodo === p ? '#0f172a' : '#f1f5f9', 
-                color: periodo === p ? 'white' : '#475569' 
-              }}
+              style={{ padding: '6px 14px', borderRadius: '20px', border: 'none', cursor: 'pointer', fontSize: '0.85em', fontWeight: '600', backgroundColor: periodo === p ? '#0f172a' : '#f1f5f9', color: periodo === p ? 'white' : '#475569' }}
             >
               {p === 'epoca' ? 'Toda a Época' : (p === 'mes' ? 'Este Mês' : 'Esta Semana')}
             </button>
           ))}
         </div>
 
-        {/* DESTAQUE DA MÉDIA */}
         <div style={{ marginTop: '20px', padding: '18px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
           <div style={{ fontSize: '0.8em', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#64748b', fontWeight: 'bold' }}>
             A tua média {periodo === 'epoca' ? 'global' : (periodo === 'mes' ? 'deste mês' : 'desta semana')}
@@ -185,54 +179,36 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
         </div>
       </div>
 
-      {/* GRÁFICO EVOLUTIVO */}
       <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 6px rgba(0,0,0,0.06)' }}>
-        <h3 style={{ color: '#1e293b', fontSize: '1.05em', margin: '0 0 15px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          📈 Evolução das Notas
-        </h3>
-
+        <h3 style={{ color: '#1e293b', fontSize: '1.05em', margin: '0 0 15px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>📈 Evolução das Notas</h3>
         {dadosGrafico.length === 0 ? (
-          <div style={{ padding: '30px', textAlign: 'center', color: '#94a3b8', fontSize: '0.9em' }}>
-            Sem notas publicadas neste período para desenhar o gráfico.
-          </div>
+          <div style={{ padding: '30px', textAlign: 'center', color: '#94a3b8', fontSize: '0.9em' }}>Sem notas publicadas neste período para desenhar o gráfico.</div>
         ) : dadosGrafico.length === 1 ? (
-          <div style={{ padding: '25px', textAlign: 'center', color: '#64748b', fontSize: '0.9em', backgroundColor: '#f8fafc', borderRadius: '8px' }}>
-            Apenas tens 1 pontuação publicada ({dadosGrafico[0].notaFinal}) neste período. O gráfico de linha aparecerá quando tiveres mais eventos fechados.
-          </div>
+          <div style={{ padding: '25px', textAlign: 'center', color: '#64748b', fontSize: '0.9em', backgroundColor: '#f8fafc', borderRadius: '8px' }}>Apenas tens 1 pontuação publicada ({dadosGrafico[0].notaFinal}) neste período. O gráfico de linha aparecerá quando tiveres mais eventos fechados.</div>
         ) : (
           <div style={{ width: '100%', overflowX: 'auto' }}>
             <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} style={{ width: '100%', height: 'auto', display: 'block', minWidth: '320px' }}>
               <defs>
                 <linearGradient id="degradeNota" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#10b981" stopOpacity="0.3" />
-                  <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
+                  <stop offset="0%" stopColor="#10b981" stopOpacity="0.3" /><stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
                 </linearGradient>
               </defs>
-
               {[0, 5, 10].map(val => {
                 const y = paddingY + graphH - (val / 10) * graphH;
                 return (
                   <g key={val}>
                     <line x1={paddingX} y1={y} x2={chartWidth - paddingX} y2={y} stroke="#f1f5f9" strokeWidth="1" strokeDasharray={val === 5 ? '4 4' : undefined} />
-                    <text x={paddingX - 10} y={y + 3} textAnchor="end" fontSize="10" fill="#94a3b8" fontWeight="bold">
-                      {val}
-                    </text>
+                    <text x={paddingX - 10} y={y + 3} textAnchor="end" fontSize="10" fill="#94a3b8" fontWeight="bold">{val}</text>
                   </g>
                 );
               })}
-
               <path d={caminhoArea} fill="url(#degradeNota)" />
               <path d={caminhoLinha} fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-
               {coordenadasPontos.map((p, i) => (
                 <g key={i}>
                   <circle cx={p.x} cy={p.y} r="5" fill="white" stroke="#10b981" strokeWidth="3" />
-                  <text x={p.x} y={p.y - 10} textAnchor="middle" fontSize="11" fill="#0f172a" fontWeight="bold">
-                    {p.nota.toFixed(1)}
-                  </text>
-                  <text x={p.x} y={chartHeight - 6} textAnchor="middle" fontSize="9" fill="#94a3b8">
-                    {new Date(p.data).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })}
-                  </text>
+                  <text x={p.x} y={p.y - 10} textAnchor="middle" fontSize="11" fill="#0f172a" fontWeight="bold">{p.nota.toFixed(1)}</text>
+                  <text x={p.x} y={chartHeight - 6} textAnchor="middle" fontSize="9" fill="#94a3b8">{new Date(p.data).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })}</text>
                 </g>
               ))}
             </svg>
@@ -240,14 +216,10 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
         )}
       </div>
 
-      {/* HISTÓRICO DE EVENTOS */}
       <div>
         <h3 style={{ color: '#1e293b', fontSize: '1.1em', margin: '0 0 15px 0' }}>Histórico de Eventos</h3>
-
         {listaEventos.length === 0 ? (
-          <div style={{ backgroundColor: 'white', padding: '25px', textAlign: 'center', color: '#64748b', borderRadius: '8px' }}>
-            Ainda não existem registos no teu histórico para este período.
-          </div>
+          <div style={{ backgroundColor: 'white', padding: '25px', textAlign: 'center', color: '#64748b', borderRadius: '8px' }}>Ainda não existem registos no teu histórico para este período.</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {listaEventos.map(ev => {
@@ -263,22 +235,15 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
                     </div>
                     {ev.adversario && <div style={{ fontSize: '0.8em', color: '#64748b', marginTop: '2px' }}>🆚 {ev.adversario}</div>}
                   </div>
-
                   <div>
                     {ev.fechado ? (
                       ev.notaFinal !== null ? (
-                        <span style={{ fontSize: '1.2em', fontWeight: 'bold', color: '#f59e0b', backgroundColor: '#fef3c7', padding: '6px 12px', borderRadius: '8px' }}>
-                          {ev.notaFinal}
-                        </span>
+                        <span style={{ fontSize: '1.2em', fontWeight: 'bold', color: '#f59e0b', backgroundColor: '#fef3c7', padding: '6px 12px', borderRadius: '8px' }}>{ev.notaFinal}</span>
                       ) : (
-                        <span style={{ fontSize: '0.8em', fontWeight: '600', color: ev.motivoFinal === 'Falta' ? '#ef4444' : '#64748b', backgroundColor: '#f1f5f9', padding: '6px 10px', borderRadius: '6px' }}>
-                          {ev.motivoFinal || '-'}
-                        </span>
+                        <span style={{ fontSize: '0.8em', fontWeight: '600', color: ev.motivoFinal === 'Falta' ? '#ef4444' : '#64748b', backgroundColor: '#f1f5f9', padding: '6px 10px', borderRadius: '6px' }}>{ev.motivoFinal || '-'}</span>
                       )
                     ) : (
-                      <span style={{ fontSize: '0.8em', fontWeight: '600', color: '#64748b', backgroundColor: '#f1f5f9', padding: '6px 10px', borderRadius: '6px' }}>
-                        🔒 Em avaliação
-                      </span>
+                      <span style={{ fontSize: '0.8em', fontWeight: '600', color: '#64748b', backgroundColor: '#f1f5f9', padding: '6px 10px', borderRadius: '6px' }}>🔒 Em avaliação</span>
                     )}
                   </div>
                 </div>

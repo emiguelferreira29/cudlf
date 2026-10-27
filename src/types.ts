@@ -3,6 +3,7 @@ export interface Atleta {
   numero?: number;
   nome: string;
   posicao: string;
+  foto_url?: string;
 }
 
 export interface AtletaRelatorio extends Atleta {
@@ -14,7 +15,7 @@ export interface Utilizador {
   id: string;
   username: string;
   senha?: string;
-  perfil: string; // 'admin' | 'treinador' | 'atleta'
+  perfil: string;
   nome: string;
   acesso_relatorios?: boolean;
   atleta_id?: string;
