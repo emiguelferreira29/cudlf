@@ -51,30 +51,12 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
   };
 
   const fetchEventos = async () => {
-    const { data } = await supabase
-      .from('eventos')
-      .select('*, avaliacoes(treinador:utilizadores(nome))')
-      .order('data', { ascending: false });
-    
+    const { data } = await supabase.from('eventos').select('*, avaliacoes(treinador:utilizadores(nome))').order('data', { ascending: false });
     if (data) {
       const eventosProcessados = data.map((ev: any) => {
         const nomes: string[] = [];
-        if (ev.avaliacoes) {
-          ev.avaliacoes.forEach((av: any) => {
-            const nome = av.treinador?.nome;
-            if (nome && !nomes.includes(nome)) nomes.push(nome);
-          });
-        }
-        const avaliadores = nomes.map(n => n.charAt(0).toUpperCase());
-        
-        return {
-          id: ev.id,
-          data: ev.data,
-          tipo: ev.tipo,
-          adversario: ev.adversario,
-          fechado: ev.fechado ?? false,
-          avaliadores
-        };
+        if (ev.avaliacoes) { ev.avaliacoes.forEach((av: any) => { const nome = av.treinador?.nome; if (nome && !nomes.includes(nome)) nomes.push(nome); }); }
+        return { id: ev.id, data: ev.data, tipo: ev.tipo, adversario: ev.adversario, fechado: ev.fechado ?? false, avaliadores: nomes.map(n => n.charAt(0).toUpperCase()) };
       });
       setEventos(eventosProcessados);
     }
@@ -93,73 +75,21 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
     }
   };
 
-  const iniciarEdicaoEvento = (ev: Evento) => {
-    setEditandoEvento(ev.id);
-    setNovaData(ev.data);
-    setNovoTipo(ev.tipo);
-    setNovoAdversario(ev.adversario || '');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const salvarEdicaoEvento = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (novoTipo.includes('Jogo') && !novoAdversario.trim()) return alert('Indique o adversário.');
-    const dados = { data: novaData, tipo: novoTipo, adversario: novoTipo.includes('Jogo') ? novoAdversario : null };
-    await supabase.from('eventos').update(dados).eq('id', editandoEvento);
-    setEditandoEvento(null);
-    fetchEventos();
-  };
-
-  const removerEvento = async (id: string) => {
-    if (window.confirm('Apagar evento e todas as avaliações associadas?')) {
-      await supabase.from('eventos').delete().eq('id', id);
-      fetchEventos();
-    }
-  };
-
-  const iniciarEdicaoAtleta = (atleta: AtletaRelatorio) => {
-    setEditandoAtleta(atleta.id);
-    setNovoNumero(atleta.numero?.toString() || '');
-    setNovoNome(atleta.nome);
-    setNovaPosicao(atleta.posicao);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const salvarEdicaoAtleta = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const dados = { numero: novoNumero ? parseInt(novoNumero) : null, nome: novoNome, posicao: novaPosicao };
-    await supabase.from('atletas').update(dados).eq('id', editandoAtleta);
-    setEditandoAtleta(null);
-    carregarTudo();
-  };
-
-  const removerAtleta = async (id: string) => {
-    if (window.confirm('Eliminar atleta e o seu histórico de notas?')) {
-      await supabase.from('atletas').delete().eq('id', id);
-      carregarTudo();
-    }
-  };
+  const iniciarEdicaoEvento = (ev: Evento) => { setEditandoEvento(ev.id); setNovaData(ev.data); setNovoTipo(ev.tipo); setNovoAdversario(ev.adversario || ''); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  const salvarEdicaoEvento = async (e: React.FormEvent) => { e.preventDefault(); if (novoTipo.includes('Jogo') && !novoAdversario.trim()) return alert('Indique o adversário.'); const dados = { data: novaData, tipo: novoTipo, adversario: novoTipo.includes('Jogo') ? novoAdversario : null }; await supabase.from('eventos').update(dados).eq('id', editandoEvento); setEditandoEvento(null); fetchEventos(); };
+  const removerEvento = async (id: string) => { if (window.confirm('Apagar evento e todas as avaliações associadas?')) { await supabase.from('eventos').delete().eq('id', id); fetchEventos(); } };
+  
+  const iniciarEdicaoAtleta = (atleta: AtletaRelatorio) => { setEditandoAtleta(atleta.id); setNovoNumero(atleta.numero?.toString() || ''); setNovoNome(atleta.nome); setNovaPosicao(atleta.posicao); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  const salvarEdicaoAtleta = async (e: React.FormEvent) => { e.preventDefault(); const dados = { numero: novoNumero ? parseInt(novoNumero) : null, nome: novoNome, posicao: novaPosicao }; await supabase.from('atletas').update(dados).eq('id', editandoAtleta); setEditandoAtleta(null); carregarTudo(); };
+  const removerAtleta = async (id: string) => { if (window.confirm('Eliminar atleta e o seu histórico de notas?')) { await supabase.from('atletas').delete().eq('id', id); carregarTudo(); } };
 
   const agruparEventosPorSemana = () => {
-    const eventosFiltrados = eventos.filter(ev => {
-      if (!ev.data) return false;
-      const [ano, mes] = ev.data.split('-');
-      return parseInt(mes) === filtroMes && parseInt(ano) === filtroAno;
-    });
-
+    const eventosFiltrados = eventos.filter(ev => { if (!ev.data) return false; const [ano, mes] = ev.data.split('-'); return parseInt(mes) === filtroMes && parseInt(ano) === filtroAno; });
     const grupos = new Map<string, EventoComAvaliadores[]>();
     eventosFiltrados.forEach(evento => {
-      const d = new Date(evento.data);
-      const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-      const dayNum = date.getUTCDay() || 7;
-      date.setUTCDate(date.getUTCDate() + 4 - dayNum);
-      const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
-      const weekNo = Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-      const chave = `Semana ${weekNo} (${date.getUTCFullYear()})`;
-      if (!grupos.has(chave)) grupos.set(chave, []);
-      grupos.get(chave)!.push(evento);
+      const d = new Date(evento.data); const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const dayNum = date.getUTCDay() || 7; date.setUTCDate(date.getUTCDate() + 4 - dayNum); const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1)); const weekNo = Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7); const chave = `Semana ${weekNo} (${date.getUTCFullYear()})`;
+      if (!grupos.has(chave)) grupos.set(chave, []); grupos.get(chave)!.push(evento);
     });
-    
     grupos.forEach(lista => lista.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime()));
     return Array.from(grupos.entries());
   };
@@ -171,7 +101,7 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
     return a.nome.localeCompare(b.nome, 'pt-PT');
   });
 
-  const inputStyle = { padding: '8px 10px', fontSize: '0.9em', border: '1px solid #cbd5e1', borderRadius: '4px', flex: '1 1 120px', minWidth: '0' };
+  const inputStyle = { padding: '8px 10px', fontSize: '0.9em', border: '1px solid #cbd5e1', borderRadius: '4px', width: '100%', boxSizing: 'border-box' as const };
   const eventosAgrupados = agruparEventosPorSemana();
 
   return (
@@ -179,14 +109,14 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
       {user.perfil === 'admin' && editandoEvento && (
         <div style={{ padding: '15px', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '20px', border: '2px solid #3b82f6' }}>
           <h3 style={{ margin: '0 0 15px 0', color: '#1e293b', fontSize: '1.1em' }}>✏️ Atualizar Evento</h3>
-          <form onSubmit={salvarEdicaoEvento} style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-            <input type="date" value={novaData} onChange={(e) => setNovaData(e.target.value)} required style={inputStyle} />
-            <select value={novoTipo} onChange={(e) => setNovoTipo(e.target.value)} style={inputStyle}>
-              <option>Treino</option><option>Jogo (Oficial)</option><option>Jogo (Treino)</option>
-            </select>
-            {novoTipo.includes('Jogo') && <input type="text" placeholder="Adversário" value={novoAdversario} onChange={(e) => setNovoAdversario(e.target.value)} required style={inputStyle} />}
-            <button type="submit" style={{ padding: '8px 15px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', flex: '1 1 100%' }}>Guardar</button>
-            <button type="button" onClick={() => setEditandoEvento(null)} style={{ padding: '8px 15px', backgroundColor: '#64748b', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', flex: '1 1 100%' }}>Cancelar</button>
+          <form onSubmit={salvarEdicaoEvento} style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', alignItems: 'flex-end' }}>
+            <div style={{ flex: '1 1 140px' }}><label style={{ display: 'block', fontSize: '0.8em', color: '#64748b', marginBottom: '4px' }}>Data</label><input type="date" value={novaData} onChange={(e) => setNovaData(e.target.value)} required style={inputStyle} /></div>
+            <div style={{ flex: '1 1 140px' }}><label style={{ display: 'block', fontSize: '0.8em', color: '#64748b', marginBottom: '4px' }}>Tipo</label><select value={novoTipo} onChange={(e) => setNovoTipo(e.target.value)} style={inputStyle}><option>Treino</option><option>Jogo (Oficial)</option><option>Jogo (Treino)</option></select></div>
+            {novoTipo.includes('Jogo') && <div style={{ flex: '1 1 140px' }}><label style={{ display: 'block', fontSize: '0.8em', color: '#64748b', marginBottom: '4px' }}>Adversário</label><input type="text" placeholder="Adversário" value={novoAdversario} onChange={(e) => setNovoAdversario(e.target.value)} required style={inputStyle} /></div>}
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button type="submit" style={{ padding: '8px 15px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', height: '35px' }}>Guardar</button>
+              <button type="button" onClick={() => setEditandoEvento(null)} style={{ padding: '8px 15px', backgroundColor: '#64748b', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', height: '35px' }}>Cancelar</button>
+            </div>
           </form>
         </div>
       )}
@@ -194,15 +124,14 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
       {user.perfil === 'admin' && editandoAtleta && (
         <div style={{ padding: '15px', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '20px', border: '2px solid #f59e0b' }}>
           <h3 style={{ margin: '0 0 15px 0', color: '#1e293b', fontSize: '1.1em' }}>✏️ Atualizar Atleta</h3>
-          <form onSubmit={salvarEdicaoAtleta} style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-            <input type="number" placeholder="Nº" value={novoNumero} onChange={(e) => setNovoNumero(e.target.value)} style={{ ...inputStyle, flex: '0 1 50px' }} />
-            <input type="text" placeholder="Nome" value={novoNome} onChange={(e) => setNovoNome(e.target.value)} required style={inputStyle} />
-            <select value={novaPosicao} onChange={(e) => setNovaPosicao(e.target.value)} style={inputStyle}>
-              <option value="Guarda-Redes">Guarda-Redes</option><option value="Defesa">Defesa</option>
-              <option value="Médio">Médio</option><option value="Avançada">Avançada</option>
-            </select>
-            <button type="submit" style={{ padding: '8px 15px', backgroundColor: '#f59e0b', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', flex: '1 1 100%' }}>Guardar</button>
-            <button type="button" onClick={() => setEditandoAtleta(null)} style={{ padding: '8px 15px', backgroundColor: '#64748b', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', flex: '1 1 100%' }}>Cancelar</button>
+          <form onSubmit={salvarEdicaoAtleta} style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', alignItems: 'flex-end' }}>
+            <div style={{ flex: '0 1 70px' }}><label style={{ display: 'block', fontSize: '0.8em', color: '#64748b', marginBottom: '4px' }}>Nº</label><input type="number" value={novoNumero} onChange={(e) => setNovoNumero(e.target.value)} style={inputStyle} /></div>
+            <div style={{ flex: '1 1 150px' }}><label style={{ display: 'block', fontSize: '0.8em', color: '#64748b', marginBottom: '4px' }}>Nome</label><input type="text" value={novoNome} onChange={(e) => setNovoNome(e.target.value)} required style={inputStyle} /></div>
+            <div style={{ flex: '1 1 140px' }}><label style={{ display: 'block', fontSize: '0.8em', color: '#64748b', marginBottom: '4px' }}>Posição</label><select value={novaPosicao} onChange={(e) => setNovaPosicao(e.target.value)} style={inputStyle}><option value="Guarda-Redes">Guarda-Redes</option><option value="Defesa">Defesa</option><option value="Médio">Médio</option><option value="Avançada">Avançada</option></select></div>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button type="submit" style={{ padding: '8px 15px', backgroundColor: '#f59e0b', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', height: '35px' }}>Guardar</button>
+              <button type="button" onClick={() => setEditandoAtleta(null)} style={{ padding: '8px 15px', backgroundColor: '#64748b', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', height: '35px' }}>Cancelar</button>
+            </div>
           </form>
         </div>
       )}
@@ -212,10 +141,7 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
         
         <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '20px' }}>
           <select value={filtroMes} onChange={(e) => setFiltroMes(Number(e.target.value))} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', backgroundColor: 'white', outline: 'none', cursor: 'pointer', fontWeight: '500', flex: '1 1 120px' }}>
-            <option value={1}>Janeiro</option><option value={2}>Fevereiro</option><option value={3}>Março</option>
-            <option value={4}>Abril</option><option value={5}>Maio</option><option value={6}>Junho</option>
-            <option value={7}>Julho</option><option value={8}>Agosto</option><option value={9}>Setembro</option>
-            <option value={10}>Outubro</option><option value={11}>Novembro</option><option value={12}>Dezembro</option>
+            <option value={1}>Janeiro</option><option value={2}>Fevereiro</option><option value={3}>Março</option><option value={4}>Abril</option><option value={5}>Maio</option><option value={6}>Junho</option><option value={7}>Julho</option><option value={8}>Agosto</option><option value={9}>Setembro</option><option value={10}>Outubro</option><option value={11}>Novembro</option><option value={12}>Dezembro</option>
           </select>
           <select value={filtroAno} onChange={(e) => setFiltroAno(Number(e.target.value))} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', backgroundColor: 'white', outline: 'none', cursor: 'pointer', fontWeight: '500', flex: '0 1 90px' }}>
             {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 2 + i).map(ano => (
@@ -225,9 +151,7 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
         </div>
 
         {eventosAgrupados.length === 0 ? (
-          <div style={{ textAlign: 'center', color: '#64748b', padding: '20px', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-            Sem eventos registados para este mês.
-          </div>
+          <div style={{ textAlign: 'center', color: '#64748b', padding: '20px', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>Sem eventos registados para este mês.</div>
         ) : (
           eventosAgrupados.map(([semana, lista]) => (
             <div key={semana} style={{ marginBottom: '20px' }}>
@@ -243,9 +167,7 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
                       <div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                           <div>
-                            <div style={{ fontWeight: 'bold', color: '#1e293b', fontSize: '1em', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              {dataFormatada} {ev.fechado && <span title="Evento Fechado">🔒</span>}
-                            </div>
+                            <div style={{ fontWeight: 'bold', color: '#1e293b', fontSize: '1em', display: 'flex', alignItems: 'center', gap: '4px' }}>{dataFormatada} {ev.fechado && <span title="Evento Fechado">🔒</span>}</div>
                             <div style={{ fontSize: '0.85em', color: '#64748b', textTransform: 'capitalize' }}>{diaSemana}</div>
                           </div>
                           {user.perfil === 'admin' && (
@@ -261,26 +183,11 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
                         {ev.avaliadores && ev.avaliadores.length > 0 && (
                           <div style={{ display: 'flex', gap: '5px', marginTop: '10px' }}>
                             {ev.avaliadores.map((inicial, idx) => (
-                              <span key={idx} style={{ 
-                                backgroundColor: '#f1f5f9', 
-                                color: '#334155', 
-                                border: '1px solid #cbd5e1', 
-                                fontSize: '0.7em', 
-                                fontWeight: 'bold', 
-                                width: '22px', 
-                                height: '22px', 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                justifyContent: 'center', 
-                                borderRadius: '50%' 
-                              }}>
-                                {inicial}
-                              </span>
+                              <span key={idx} style={{ backgroundColor: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1', fontSize: '0.7em', fontWeight: 'bold', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>{inicial}</span>
                             ))}
                           </div>
                         )}
                       </div>
-                      
                       <button type="button" onClick={() => onSelecionarEvento(ev)} style={{ width: '100%', marginTop: '12px', padding: '8px', backgroundColor: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer', fontWeight: '500', fontSize: '0.9em' }}>
                         {user.perfil === 'admin' ? 'Ver Resumo' : 'Ver Notas'}
                       </button>
@@ -299,7 +206,7 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead style={{ backgroundColor: '#f8fafc' }}>
               <tr>
-                <th style={{ padding: '10px 8px', borderBottom: '1px solid #e2e8f0', color: '#475569', fontSize: '0.85em', textAlign: 'center' }}>Nº</th>
+                <th style={{ padding: '10px 8px', borderBottom: '1px solid #e2e8f0', color: '#475569', fontSize: '0.85em', width: '80px' }}>Nº</th>
                 <th style={{ padding: '10px 8px', borderBottom: '1px solid #e2e8f0', color: '#475569', fontSize: '0.85em' }}>Atleta</th>
                 <th style={{ padding: '10px 8px', borderBottom: '1px solid #e2e8f0', color: '#475569', fontSize: '0.85em', textAlign: 'center' }}>Média</th>
                 {user.perfil === 'admin' && <th style={{ padding: '10px 8px', borderBottom: '1px solid #e2e8f0', color: '#475569', fontSize: '0.85em', textAlign: 'center' }}>Ações</th>}
@@ -308,15 +215,17 @@ export default function Dashboard({ user, onSelecionarEvento, onAtualizarAtletas
             <tbody>
               {relatorioOrdenado.map(atleta => (
                 <tr key={atleta.id}>
-                  <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', color: '#64748b', fontSize: '0.9em', textAlign: 'center' }}>{atleta.numero || '-'}</td>
-                  
+                  <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', color: '#64748b', fontSize: '0.9em' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {atleta.foto_url ? <img src={atleta.foto_url} alt="" style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid #e2e8f0' }} onError={(e) => e.currentTarget.style.display = 'none'} /> : <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', flexShrink: 0, border: '1px solid #e2e8f0' }}>👤</div>}
+                      <span style={{ minWidth: '20px' }}>{atleta.numero || '-'}</span>
+                    </div>
+                  </td>
                   <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9' }}>
                     <div style={{ fontWeight: '600', color: '#1e293b', fontSize: '0.95em' }}>{atleta.nome}</div>
                     <div style={{ fontSize: '0.75em', color: '#94a3b8', marginTop: '2px' }}>{atleta.posicao}</div>
                   </td>
-                  
                   <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', fontWeight: 'bold', color: '#f59e0b', fontSize: '0.95em', textAlign: 'center' }}>{atleta.media_geral ?? '-'}</td>
-                  
                   {user.perfil === 'admin' && (
                     <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', textAlign: 'center' }}>
                       <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
