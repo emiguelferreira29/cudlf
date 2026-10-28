@@ -319,7 +319,13 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
           <div style={{ flex: '1 1 150px' }}><label style={{ display: 'block', fontSize: '0.8em', color: '#64748b', marginBottom: '4px' }}>Nome Completo</label><input type="text" value={novoUserNome} onChange={(e) => setNovoUserNome(e.target.value)} required style={inputStyle} /></div>
           <div style={{ flex: '1 1 120px' }}><label style={{ display: 'block', fontSize: '0.8em', color: '#64748b', marginBottom: '4px' }}>Username</label><input type="text" value={novoUserUsername} onChange={(e) => setNovoUserUsername(e.target.value)} required style={inputStyle} /></div>
           <div style={{ flex: '1 1 120px' }}><label style={{ display: 'block', fontSize: '0.8em', color: '#64748b', marginBottom: '4px' }}>Senha</label><input type="password" value={novoUserSenha} onChange={(e) => setNovoUserSenha(e.target.value)} required style={inputStyle} /></div>
-          <div style={{ flex: '1 1 120px' }}><label style={{ display: 'block', fontSize: '0.8em', color: '#64748b', marginBottom: '4px' }}>Perfil</label><select value={novoUserPerfil} onChange={(e) => setNovoUserPerfil(e.target.value)} style={inputStyle}><option value="treinador">Treinador</option><option value="admin">Administrador</option></select></div>
+          <div style={{ flex: '1 1 120px' }}><label style={{ display: 'block', fontSize: '0.8em', color: '#64748b', marginBottom: '4px' }}>Perfil</label>
+            <select value={novoUserPerfil} onChange={(e) => setNovoUserPerfil(e.target.value)} style={inputStyle}>
+              <option value="treinador">Treinador</option>
+              <option value="diretor">Diretor</option>
+              <option value="admin">Administrador</option>
+            </select>
+          </div>
           <div style={{ flex: '1 1 100%' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.9em', color: '#334155', cursor: 'pointer' }}>
               <input type="checkbox" checked={novoUserAcesso} onChange={(e) => setNovoUserAcesso(e.target.checked)} /> Dar acesso a Relatórios

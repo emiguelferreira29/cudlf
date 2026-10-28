@@ -10,7 +10,6 @@ interface AvaliacaoProps {
   onGuardado?: () => void;
   onMudarEvento?: (ev: Evento) => void;
 }
-
 interface Notificacao { mensagem: string; tipo: 'sucesso' | 'erro' | 'aviso'; }
 
 const PESO_POSICAO: Record<string, number> = { 'Guarda-Redes': 1, 'Defesa': 2, 'Médio': 3, 'Avançada': 4 };
@@ -28,17 +27,14 @@ export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGua
 
   useEffect(() => {
     carregarEstadoEvento();
-    if (user.perfil === 'admin') carregarTodasAsNotasAdmin();
+    if (['admin', 'diretor'].includes(user.perfil)) carregarTodasAsNotasAdmin();
     else carregarNotasExistentes();
     carregarAdjacentes();
   }, [evento.id]);
 
-  useEffect(() => {
-    if (notificacao) { const timer = setTimeout(() => setNotificacao(null), 3000); return () => clearTimeout(timer); }
-  }, [notificacao]);
+  useEffect(() => { if (notificacao) { const timer = setTimeout(() => setNotificacao(null), 3000); return () => clearTimeout(timer); } }, [notificacao]);
 
   const mostrarNotificacao = (mensagem: string, tipo: 'sucesso' | 'erro' | 'aviso') => { setNotificacao({ mensagem, tipo }); };
-
   const carregarEstadoEvento = async () => { const { data } = await supabase.from('eventos').select('fechado').eq('id', evento.id).single(); if (data) setEstaFechado(data.fechado ?? false); };
   
   const carregarAdjacentes = async () => {
@@ -76,10 +72,7 @@ export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGua
     else mostrarNotificacao('Erro ao alterar o estado do evento.', 'erro');
   };
 
-  const atletasOrdenadas = [...atletas].sort((a, b) => {
-    const pesoA = PESO_POSICAO[a.posicao] ?? 99; const pesoB = PESO_POSICAO[b.posicao] ?? 99;
-    if (pesoA !== pesoB) return pesoA - pesoB; return a.nome.localeCompare(b.nome, 'pt-PT');
-  });
+  const atletasOrdenadas = [...atletas].sort((a, b) => { const pesoA = PESO_POSICAO[a.posicao] ?? 99; const pesoB = PESO_POSICAO[b.posicao] ?? 99; if (pesoA !== pesoB) return pesoA - pesoB; return a.nome.localeCompare(b.nome, 'pt-PT'); });
 
   const atualizarInput = (atletaId: string, campo: keyof AvaliacaoInput, valor: any) => {
     if (estaFechado) return;
@@ -104,25 +97,14 @@ export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGua
     if (!error) { mostrarNotificacao('Notas guardadas!', 'sucesso'); carregarNotasExistentes(); onGuardado?.(); } else mostrarNotificacao('Erro ao comunicar com a base de dados.', 'erro');
   };
 
-  // NOVA FUNÇÃO: O Admin anula as notas e sobrepõe com a justificação/falta
   const aplicarFaltaAdmin = async (atletaId: string, motivo: string, nomeAtleta: string) => {
     if (!motivo || estaFechado) return;
     if (!window.confirm(`Atenção: Vai anular as pontuações dadas a ${nomeAtleta} neste evento e substituir por "${motivo}". Confirma?`)) return;
-
     setSalvando(true);
-    const { error } = await supabase
-      .from('avaliacoes')
-      .update({ nota: null, motivo: motivo })
-      .eq('evento_id', evento.id)
-      .eq('atleta_id', atletaId);
-
+    const { error } = await supabase.from('avaliacoes').update({ nota: null, motivo: motivo }).eq('evento_id', evento.id).eq('atleta_id', atletaId);
     setSalvando(false);
-    if (!error) {
-      mostrarNotificacao(`Falta (${motivo}) aplicada a ${nomeAtleta}.`, 'sucesso');
-      carregarTodasAsNotasAdmin();
-    } else {
-      mostrarNotificacao('Erro ao aplicar correção.', 'erro');
-    }
+    if (!error) { mostrarNotificacao(`Falta (${motivo}) aplicada a ${nomeAtleta}.`, 'sucesso'); carregarTodasAsNotasAdmin(); } 
+    else { mostrarNotificacao('Erro ao aplicar correção.', 'erro'); }
   };
 
   return (
@@ -150,13 +132,10 @@ export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGua
       <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '15px', backgroundColor: 'white', padding: '16px 20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <h2 style={{ margin: '0', color: '#0f172a', fontSize: '1.25em' }}>{user.perfil === 'admin' ? 'Visão da Direção (Resumo)' : 'Registo de Notas'}</h2>
+            <h2 style={{ margin: '0', color: '#0f172a', fontSize: '1.25em' }}>{['admin', 'diretor'].includes(user.perfil) ? 'Visão da Direção (Resumo)' : 'Registo de Notas'}</h2>
             {estaFechado && <span style={{ backgroundColor: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75em', fontWeight: 'bold' }}>🔒 Fechado</span>}
           </div>
-          <div style={{ color: '#475569', fontSize: '0.9em', marginTop: '4px' }}>
-            {new Date(evento.data).toLocaleDateString('pt-PT')} • <strong style={{ color: evento.tipo.includes('Jogo') ? '#dc2626' : '#16a34a', marginLeft: '6px' }}>{evento.tipo}</strong>
-            {evento.adversario && ` 🆚 ${evento.adversario}`}
-          </div>
+          <div style={{ color: '#475569', fontSize: '0.9em', marginTop: '4px' }}>{new Date(evento.data).toLocaleDateString('pt-PT')} • <strong style={{ color: evento.tipo.includes('Jogo') ? '#dc2626' : '#16a34a', marginLeft: '6px' }}>{evento.tipo}</strong>{evento.adversario && ` 🆚 ${evento.adversario}`}</div>
         </div>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
           {user.perfil === 'admin' && (
@@ -170,13 +149,13 @@ export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGua
         </div>
       </div>
 
-      {user.perfil !== 'admin' && estaFechado && (
+      {!['admin', 'diretor'].includes(user.perfil) && estaFechado && (
         <div style={{ backgroundColor: '#fff1f2', border: '1px solid #fecdd3', color: '#9f1239', padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.92em', fontWeight: '500' }}>
           <span style={{ fontSize: '1.2em' }}>🔒</span> Este evento foi encerrado pela Direção. As pontuações encontram-se bloqueadas.
         </div>
       )}
 
-      {user.perfil === 'admin' ? (
+      {['admin', 'diretor'].includes(user.perfil) ? (
         <div style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead style={{ backgroundColor: '#f8fafc' }}>
@@ -185,7 +164,7 @@ export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGua
                 <th style={{ padding: '12px 15px', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>Atleta</th>
                 {Object.values(treinadoresEnvolvidos).map((nomeTreinador, idx) => <th key={idx} style={{ padding: '12px 15px', borderBottom: '1px solid #e2e8f0', color: '#475569', textAlign: 'center' }}>{nomeTreinador}</th>)}
                 <th style={{ padding: '12px 15px', borderBottom: '1px solid #e2e8f0', color: '#0f172a', fontWeight: 'bold', textAlign: 'center' }}>Média Evento</th>
-                <th style={{ padding: '12px 15px', borderBottom: '1px solid #e2e8f0', color: '#475569', textAlign: 'center' }}>Correção (Admin)</th>
+                {user.perfil === 'admin' && <th style={{ padding: '12px 15px', borderBottom: '1px solid #e2e8f0', color: '#475569', textAlign: 'center' }}>Correção (Admin)</th>}
               </tr>
             </thead>
             <tbody>
@@ -209,22 +188,13 @@ export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGua
                       return <td key={tId} style={{ padding: '12px 15px', borderBottom: '1px solid #f1f5f9', color: '#64748b', textAlign: 'center' }}>{aval ? (aval.nota !== null ? aval.nota : aval.motivo) : '-'}</td>;
                     })}
                     <td style={{ padding: '12px 15px', borderBottom: '1px solid #f1f5f9', fontWeight: 'bold', color: '#f59e0b', textAlign: 'center' }}>{media}</td>
-                    <td style={{ padding: '12px 15px', borderBottom: '1px solid #f1f5f9', textAlign: 'center' }}>
-                      <select 
-                        defaultValue="" 
-                        onChange={(e) => { if(e.target.value) { aplicarFaltaAdmin(atleta.id, e.target.value, atleta.nome); e.target.value = ''; } }} 
-                        disabled={estaFechado} 
-                        style={{ padding: '6px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85em', cursor: estaFechado ? 'not-allowed' : 'pointer', backgroundColor: estaFechado ? '#f1f5f9' : 'white', maxWidth: '130px' }}
-                      >
-                        <option value="">Anular para...</option>
-                        <option value="Falta">Falta (Conta 0)</option>
-                        <option value="Justificada">Justificada</option>
-                        <option value="Doente">Doente</option>
-                        <option value="Lesionada">Lesionada</option>
-                        <option value="Não aplicável">Não aplicável</option>
-                        {evento.tipo.includes('Jogo') && <option value="Não convocada">Não convocada</option>}
-                      </select>
-                    </td>
+                    {user.perfil === 'admin' && (
+                      <td style={{ padding: '12px 15px', borderBottom: '1px solid #f1f5f9', textAlign: 'center' }}>
+                        <select defaultValue="" onChange={(e) => { if(e.target.value) { aplicarFaltaAdmin(atleta.id, e.target.value, atleta.nome); e.target.value = ''; } }} disabled={estaFechado} style={{ padding: '6px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85em', cursor: estaFechado ? 'not-allowed' : 'pointer', backgroundColor: estaFechado ? '#f1f5f9' : 'white', maxWidth: '130px' }}>
+                          <option value="">Anular para...</option><option value="Falta">Falta (Conta 0)</option><option value="Justificada">Justificada</option><option value="Doente">Doente</option><option value="Lesionada">Lesionada</option><option value="Não aplicável">Não aplicável</option>{evento.tipo.includes('Jogo') && <option value="Não convocada">Não convocada</option>}
+                        </select>
+                      </td>
+                    )}
                   </tr>
                 );
               })}
@@ -241,10 +211,7 @@ export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGua
                 <div key={atleta.id} style={{ backgroundColor: estaFechado ? '#f8fafc' : 'white', padding: '14px 18px', borderRadius: '8px', boxShadow: '0 1px 2px rgba(0,0,0,0.06)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px', borderLeft: temRegisto ? (aval.semPontuacao && aval.motivo === 'Falta' ? '4px solid #ef4444' : (aval.semPontuacao ? '4px solid #f59e0b' : '4px solid #10b981')) : '4px solid #cbd5e1' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     {atleta.foto_url ? <img src={atleta.foto_url} alt="" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid #e2e8f0' }} onError={(e) => e.currentTarget.style.display = 'none'} /> : <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0, border: '2px solid #e2e8f0' }}>👤</div>}
-                    <div>
-                      <div style={{ fontWeight: '600', color: '#0f172a', fontSize: '1em' }}>{atleta.numero ? `${atleta.numero} - ` : ''}{atleta.nome}</div>
-                      <div style={{ fontSize: '0.85em', color: '#64748b', marginTop: '2px' }}>{atleta.posicao}</div>
-                    </div>
+                    <div><div style={{ fontWeight: '600', color: '#0f172a', fontSize: '1em' }}>{atleta.numero ? `${atleta.numero} - ` : ''}{atleta.nome}</div><div style={{ fontSize: '0.85em', color: '#64748b', marginTop: '2px' }}>{atleta.posicao}</div></div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.88em', color: '#334155', cursor: estaFechado ? 'not-allowed' : 'pointer' }}>

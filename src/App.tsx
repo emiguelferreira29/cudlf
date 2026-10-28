@@ -28,12 +28,7 @@ export default function App() {
     const eventoSalvo = localStorage.getItem('clube_evento');
 
     if (!utilizadorSalvo) return 'login';
-    
-    try {
-      const u = JSON.parse(utilizadorSalvo);
-      if (u.perfil === 'atleta') return 'atleta';
-    } catch {}
-
+    try { const u = JSON.parse(utilizadorSalvo); if (u.perfil === 'atleta') return 'atleta'; } catch {}
     if (viewSalva === 'evento' && eventoSalvo) return 'evento';
     if (['dashboard', 'admin', 'relatorio'].includes(viewSalva)) return viewSalva;
     return 'dashboard';
@@ -50,7 +45,7 @@ export default function App() {
         if (data) {
           setUser(data);
           localStorage.setItem('clube_user', JSON.stringify(data));
-          if (view === 'relatorio' && data.perfil !== 'admin' && !data.acesso_relatorios) {
+          if (view === 'relatorio' && !['admin', 'diretor'].includes(data.perfil) && !data.acesso_relatorios) {
             irParaDashboard();
           }
         }
@@ -61,84 +56,45 @@ export default function App() {
   useEffect(() => {
     const handlePopState = () => {
       if (user && user.perfil !== 'atleta' && view !== 'dashboard') {
-        setEventoSelecionado(null);
-        setView('dashboard');
-        localStorage.setItem('clube_view', 'dashboard');
-        localStorage.removeItem('clube_evento');
+        setEventoSelecionado(null); setView('dashboard');
+        localStorage.setItem('clube_view', 'dashboard'); localStorage.removeItem('clube_evento');
       }
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, [user, view]);
 
-  const fetchConfiguracoes = async () => {
-    const { data } = await supabase.from('configuracoes').select('*').eq('chave', 'nome_clube').single();
-    if (data) setNomeClube(data.valor);
-  };
-
-  const fetchAtletas = async () => {
-    const { data } = await supabase.from('atletas').select('*').order('nome');
-    if (data) setAtletas(data as Atleta[]);
-  };
+  const fetchConfiguracoes = async () => { const { data } = await supabase.from('configuracoes').select('*').eq('chave', 'nome_clube').single(); if (data) setNomeClube(data.valor); };
+  const fetchAtletas = async () => { const { data } = await supabase.from('atletas').select('*').order('nome'); if (data) setAtletas(data as Atleta[]); };
 
   const irParaView = (novaView: ViewState) => {
-    if (view !== novaView) {
-      window.history.pushState({ page: novaView }, '');
-      setView(novaView);
-      localStorage.setItem('clube_view', novaView);
-    }
+    if (view !== novaView) { window.history.pushState({ page: novaView }, ''); setView(novaView); localStorage.setItem('clube_view', novaView); }
   };
 
   const irParaDashboard = () => {
     if (view !== 'dashboard') {
       window.history.back(); 
-      setTimeout(() => {
-        setView('dashboard');
-        setEventoSelecionado(null);
-        localStorage.setItem('clube_view', 'dashboard');
-        localStorage.removeItem('clube_evento');
-      }, 50);
+      setTimeout(() => { setView('dashboard'); setEventoSelecionado(null); localStorage.setItem('clube_view', 'dashboard'); localStorage.removeItem('clube_evento'); }, 50);
     }
   };
 
   const selecionarEvento = (ev: Evento) => {
-    window.history.pushState({ page: 'evento' }, '');
-    setEventoSelecionado(ev);
-    setView('evento');
-    localStorage.setItem('clube_evento', JSON.stringify(ev));
-    localStorage.setItem('clube_view', 'evento');
+    window.history.pushState({ page: 'evento' }, ''); setEventoSelecionado(ev); setView('evento');
+    localStorage.setItem('clube_evento', JSON.stringify(ev)); localStorage.setItem('clube_view', 'evento');
   };
 
   const loginSucesso = (u: Utilizador) => {
-    setUser(u);
-    localStorage.setItem('clube_user', JSON.stringify(u));
-
-    if (u.perfil === 'atleta') {
-      setView('atleta');
-      localStorage.setItem('clube_view', 'atleta');
-    } else {
-      setView('dashboard');
-      localStorage.setItem('clube_view', 'dashboard');
-      fetchAtletas();
-    }
+    setUser(u); localStorage.setItem('clube_user', JSON.stringify(u));
+    if (u.perfil === 'atleta') { setView('atleta'); localStorage.setItem('clube_view', 'atleta'); } 
+    else { setView('dashboard'); localStorage.setItem('clube_view', 'dashboard'); fetchAtletas(); }
   };
 
-  const fazerLogout = () => {
-    setUser(null);
-    setEventoSelecionado(null);
-    setView('login');
-    localStorage.clear();
-  };
+  const fazerLogout = () => { setUser(null); setEventoSelecionado(null); setView('login'); localStorage.clear(); };
 
-  if (!user || view === 'login') {
-    return <Login nomeClube={nomeClube} onLoginSuccess={loginSucesso} />;
-  }
+  if (!user || view === 'login') return <Login nomeClube={nomeClube} onLoginSuccess={loginSucesso} />;
 
-  const btnNavStyle = (ativo: boolean) => ({
-    background: ativo ? '#334155' : 'transparent', color: 'white', border: '1px solid #334155', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85em'
-  });
-
-  const podeVerRelatorios = user.perfil === 'admin' || user.acesso_relatorios;
+  const btnNavStyle = (ativo: boolean) => ({ background: ativo ? '#334155' : 'transparent', color: 'white', border: '1px solid #334155', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85em' });
+  const podeVerRelatorios = ['admin', 'diretor'].includes(user.perfil) || user.acesso_relatorios;
 
   return (
     <div style={{ fontFamily: 'system-ui, sans-serif', backgroundColor: '#f8fafc', minHeight: '100vh', fontSize: '0.95em' }}>
@@ -156,7 +112,6 @@ export default function App() {
           <button onClick={fazerLogout} style={{ background: '#dc2626', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85em' }}>Sair</button>
         </div>
       </header>
-
       <main style={{ maxWidth: '1000px', margin: '0 auto', padding: '20px' }}>
         {user.perfil === 'atleta' && view === 'atleta' && <PainelAtleta user={user} />}
         {user.perfil !== 'atleta' && view === 'dashboard' && <Dashboard user={user} onSelecionarEvento={selecionarEvento} onAtualizarAtletas={(lista) => setAtletas(lista)} />}
