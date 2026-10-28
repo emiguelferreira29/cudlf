@@ -104,8 +104,29 @@ export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGua
     if (!error) { mostrarNotificacao('Notas guardadas!', 'sucesso'); carregarNotasExistentes(); onGuardado?.(); } else mostrarNotificacao('Erro ao comunicar com a base de dados.', 'erro');
   };
 
+  // NOVA FUNÇÃO: O Admin anula as notas e sobrepõe com a justificação/falta
+  const aplicarFaltaAdmin = async (atletaId: string, motivo: string, nomeAtleta: string) => {
+    if (!motivo || estaFechado) return;
+    if (!window.confirm(`Atenção: Vai anular as pontuações dadas a ${nomeAtleta} neste evento e substituir por "${motivo}". Confirma?`)) return;
+
+    setSalvando(true);
+    const { error } = await supabase
+      .from('avaliacoes')
+      .update({ nota: null, motivo: motivo })
+      .eq('evento_id', evento.id)
+      .eq('atleta_id', atletaId);
+
+    setSalvando(false);
+    if (!error) {
+      mostrarNotificacao(`Falta (${motivo}) aplicada a ${nomeAtleta}.`, 'sucesso');
+      carregarTodasAsNotasAdmin();
+    } else {
+      mostrarNotificacao('Erro ao aplicar correção.', 'erro');
+    }
+  };
+
   return (
-    <div style={{ maxWidth: '900px', margin: '0 auto', position: 'relative' }}>
+    <div style={{ maxWidth: '950px', margin: '0 auto', position: 'relative' }}>
       {notificacao && (
         <div style={{ position: 'fixed', top: '25px', left: '50%', transform: 'translateX(-50%)', zIndex: 9999, backgroundColor: 'white', borderRadius: '8px', padding: '14px 22px', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2)', display: 'flex', alignItems: 'center', gap: '12px', borderLeft: `5px solid ${notificacao.tipo === 'sucesso' ? '#10b981' : (notificacao.tipo === 'erro' ? '#ef4444' : '#f59e0b')}` }}>
           <span style={{ fontSize: '1.2em' }}>{notificacao.tipo === 'sucesso' ? '✅' : (notificacao.tipo === 'erro' ? '❌' : '⚠️')}</span>
@@ -164,6 +185,7 @@ export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGua
                 <th style={{ padding: '12px 15px', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>Atleta</th>
                 {Object.values(treinadoresEnvolvidos).map((nomeTreinador, idx) => <th key={idx} style={{ padding: '12px 15px', borderBottom: '1px solid #e2e8f0', color: '#475569', textAlign: 'center' }}>{nomeTreinador}</th>)}
                 <th style={{ padding: '12px 15px', borderBottom: '1px solid #e2e8f0', color: '#0f172a', fontWeight: 'bold', textAlign: 'center' }}>Média Evento</th>
+                <th style={{ padding: '12px 15px', borderBottom: '1px solid #e2e8f0', color: '#475569', textAlign: 'center' }}>Correção (Admin)</th>
               </tr>
             </thead>
             <tbody>
@@ -187,6 +209,22 @@ export default function AvaliacaoEvento({ evento, user, atletas, onVoltar, onGua
                       return <td key={tId} style={{ padding: '12px 15px', borderBottom: '1px solid #f1f5f9', color: '#64748b', textAlign: 'center' }}>{aval ? (aval.nota !== null ? aval.nota : aval.motivo) : '-'}</td>;
                     })}
                     <td style={{ padding: '12px 15px', borderBottom: '1px solid #f1f5f9', fontWeight: 'bold', color: '#f59e0b', textAlign: 'center' }}>{media}</td>
+                    <td style={{ padding: '12px 15px', borderBottom: '1px solid #f1f5f9', textAlign: 'center' }}>
+                      <select 
+                        defaultValue="" 
+                        onChange={(e) => { if(e.target.value) { aplicarFaltaAdmin(atleta.id, e.target.value, atleta.nome); e.target.value = ''; } }} 
+                        disabled={estaFechado} 
+                        style={{ padding: '6px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85em', cursor: estaFechado ? 'not-allowed' : 'pointer', backgroundColor: estaFechado ? '#f1f5f9' : 'white', maxWidth: '130px' }}
+                      >
+                        <option value="">Anular para...</option>
+                        <option value="Falta">Falta (Conta 0)</option>
+                        <option value="Justificada">Justificada</option>
+                        <option value="Doente">Doente</option>
+                        <option value="Lesionada">Lesionada</option>
+                        <option value="Não aplicável">Não aplicável</option>
+                        {evento.tipo.includes('Jogo') && <option value="Não convocada">Não convocada</option>}
+                      </select>
+                    </td>
                   </tr>
                 );
               })}
