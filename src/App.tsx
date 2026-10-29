@@ -142,7 +142,7 @@ export default function App() {
 
   return (
     <div style={{ fontFamily: 'system-ui, sans-serif', backgroundColor: '#f8fafc', minHeight: '100vh', fontSize: '0.95em' }}>
-      <header className="no-print" style={{ backgroundColor: '#0f172a', padding: '10px 20px', color: 'white', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '15px', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>
+      <header className="no-print" style={{ position: 'sticky', top: 0, zIndex: 1000, backgroundColor: '#0f172a', padding: '10px 20px', color: 'white', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '15px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.3)' }}>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
           <img 
