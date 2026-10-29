@@ -115,7 +115,10 @@ export default function GrelhaNotas({ atletas }: GrelhaNotasProps) {
     <div>
       {!gerandoPDF && (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
-          <h2 style={{ margin: 0, color: '#0f172a', fontSize: '1.3em' }}>📋 Grelha de Pontuações</h2>
+          <div>
+            <h2 style={{ margin: 0, color: '#0f172a', fontSize: '1.3em' }}>📋 Grelha de Pontuações</h2>
+            <div style={{ marginTop: '4px', color: '#64748b', fontSize: '0.95em', fontWeight: '500' }}>{filtroValor}</div>
+          </div>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
             <select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value as any)} style={{ padding: '8px 12px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.95em', fontWeight: '600', color: '#1e293b', cursor: 'pointer' }}>
               <option value="mes">Por Mês</option><option value="semana">Por Semana</option>
@@ -130,26 +133,35 @@ export default function GrelhaNotas({ atletas }: GrelhaNotasProps) {
         </div>
       )}
 
+      {/* ÁREA QUE VAI SER CONVERTIDA EM PDF */}
       <div id="relatorio-pdf" style={{ backgroundColor: 'white', padding: gerandoPDF ? '10px' : '0', borderRadius: gerandoPDF ? '0' : '8px' }}>
         
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: gerandoPDF ? '10px' : '25px', padding: gerandoPDF ? '0' : '20px', paddingBottom: gerandoPDF ? '10px' : '15px', borderBottom: '2px solid #e2e8f0' }}>
-          <img 
-            src="/logor.png" 
-            alt="Logótipo do Clube" 
-            style={{ height: gerandoPDF ? '40px' : '65px', width: 'auto', objectFit: 'contain' }} 
-            onError={(e) => e.currentTarget.style.display = 'none'} 
-          />
-          <div>
-            <h1 style={{ margin: 0, color: '#0f172a', fontSize: gerandoPDF ? '1.2em' : '1.6em', textTransform: 'uppercase', lineHeight: 1.1 }}>Clube União Desportivo Leverense</h1>
-            <h2 style={{ margin: '2px 0 0 0', color: '#64748b', fontSize: gerandoPDF ? '0.95em' : '1.2em', fontWeight: '500' }}>Sub-17 Feminino • {filtroValor}</h2>
+        {/* CABEÇALHO OFICIAL - SÓ APARECE DURANTE A GERAÇÃO DO PDF */}
+        {gerandoPDF && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '10px', paddingBottom: '10px', borderBottom: '2px solid #e2e8f0' }}>
+            <img 
+              src="/logor.png" 
+              alt="Logótipo do Clube" 
+              style={{ height: '40px', width: 'auto', objectFit: 'contain' }} 
+              onError={(e) => e.currentTarget.style.display = 'none'} 
+            />
+            <div>
+              <h1 style={{ margin: 0, color: '#0f172a', fontSize: '1.2em', textTransform: 'uppercase', lineHeight: 1.1 }}>Clube União Desportivo Leverense</h1>
+              <h2 style={{ margin: '2px 0 0 0', color: '#64748b', fontSize: '0.95em', fontWeight: '500' }}>Sub-17 Feminino • {filtroValor}</h2>
+            </div>
           </div>
-        </div>
+        )}
 
         <div style={{ overflowX: gerandoPDF ? 'visible' : 'auto', backgroundColor: 'white', borderRadius: '8px', boxShadow: gerandoPDF ? 'none' : '0 1px 3px rgba(0,0,0,0.1)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: gerandoPDF ? '0.70em' : '0.85em' }}>
             <thead>
               <tr>
-                <th style={{ position: gerandoPDF ? 'static' : 'sticky', left: 0, zIndex: 2, backgroundColor: '#f8fafc', padding: gerandoPDF ? '6px 8px' : '12px', borderBottom: '2px solid #e2e8f0', borderRight: '2px solid #e2e8f0', color: '#475569', textAlign: 'left', minWidth: gerandoPDF ? 'auto' : '130px' }}>Atleta</th>
+                <th style={{ 
+                  position: gerandoPDF ? 'static' : 'sticky', left: 0, zIndex: 2, backgroundColor: '#f8fafc', 
+                  padding: gerandoPDF ? '6px 4px' : '10px 8px', borderBottom: '2px solid #e2e8f0', borderRight: '2px solid #e2e8f0', 
+                  color: '#475569', textAlign: 'left', minWidth: gerandoPDF ? 'auto' : '90px', maxWidth: gerandoPDF ? 'none' : '130px',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                }}>Atleta</th>
                 {eventosFiltrados.map(ev => (
                   <th key={ev.id} style={{ padding: gerandoPDF ? '4px 2px' : '10px 5px', borderBottom: '2px solid #e2e8f0', borderRight: '1px solid #e2e8f0', color: '#475569', textAlign: 'center' }}>
                     <div style={{ fontWeight: 'bold', color: '#1e293b' }}>{new Date(ev.data).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })}</div>
@@ -167,7 +179,12 @@ export default function GrelhaNotas({ atletas }: GrelhaNotasProps) {
 
                   return (
                     <tr key={a.id}>
-                      <td style={{ position: gerandoPDF ? 'static' : 'sticky', left: 0, zIndex: 1, backgroundColor: 'white', padding: gerandoPDF ? '4px 8px' : '10px 12px', borderBottom: '1px solid #f1f5f9', borderRight: '2px solid #e2e8f0', fontWeight: '600', color: '#1e293b', whiteSpace: 'nowrap' }}>
+                      <td title={a.nome} style={{ 
+                        position: gerandoPDF ? 'static' : 'sticky', left: 0, zIndex: 1, backgroundColor: 'white', 
+                        padding: gerandoPDF ? '4px 4px' : '10px 8px', borderBottom: '1px solid #f1f5f9', borderRight: '2px solid #e2e8f0', 
+                        fontWeight: '600', color: '#1e293b', whiteSpace: 'nowrap', maxWidth: gerandoPDF ? 'none' : '130px',
+                        overflow: 'hidden', textOverflow: 'ellipsis'
+                      }}>
                         {a.numero ? `${a.numero} - ` : ''}{a.nome}
                       </td>
                       {eventosFiltrados.map(ev => {
