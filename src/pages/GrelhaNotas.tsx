@@ -87,7 +87,7 @@ export default function GrelhaNotas({ atletas }: GrelhaNotasProps) {
       if (!elemento) return;
 
       const opcoes = {
-        margin:       4, // Margem muito curta para aproveitar a folha ao máximo
+        margin:       4,
         filename:     `Relatorio_Sub17_${filtroValor.replace(/ /g, '_')}.pdf`,
         image:        { type: 'jpeg', quality: 1 },
         html2canvas:  { scale: 2, useCORS: true },
@@ -130,10 +130,8 @@ export default function GrelhaNotas({ atletas }: GrelhaNotasProps) {
         </div>
       )}
 
-      {/* ÁREA QUE VAI SER CONVERTIDA EM PDF */}
       <div id="relatorio-pdf" style={{ backgroundColor: 'white', padding: gerandoPDF ? '10px' : '0', borderRadius: gerandoPDF ? '0' : '8px' }}>
         
-        {/* CABEÇALHO OFICIAL DO RELATÓRIO - MAIS COMPACTO NO PDF */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: gerandoPDF ? '10px' : '25px', padding: gerandoPDF ? '0' : '20px', paddingBottom: gerandoPDF ? '10px' : '15px', borderBottom: '2px solid #e2e8f0' }}>
           <img 
             src="/logor.png" 
@@ -147,21 +145,18 @@ export default function GrelhaNotas({ atletas }: GrelhaNotasProps) {
           </div>
         </div>
 
-        {/* CONTAINER DA TABELA */}
         <div style={{ overflowX: gerandoPDF ? 'visible' : 'auto', backgroundColor: 'white', borderRadius: '8px', boxShadow: gerandoPDF ? 'none' : '0 1px 3px rgba(0,0,0,0.1)' }}>
-          
-          {/* TABELA MAIS COMPACTA NO MODO PDF */}
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: gerandoPDF ? '0.70em' : '0.85em' }}>
             <thead>
               <tr>
-                <th style={{ backgroundColor: '#f8fafc', padding: gerandoPDF ? '6px 8px' : '12px', borderBottom: '2px solid #e2e8f0', borderRight: '2px solid #e2e8f0', color: '#475569', textAlign: 'left', minWidth: gerandoPDF ? 'auto' : '130px' }}>Atleta</th>
+                <th style={{ position: gerandoPDF ? 'static' : 'sticky', left: 0, zIndex: 2, backgroundColor: '#f8fafc', padding: gerandoPDF ? '6px 8px' : '12px', borderBottom: '2px solid #e2e8f0', borderRight: '2px solid #e2e8f0', color: '#475569', textAlign: 'left', minWidth: gerandoPDF ? 'auto' : '130px' }}>Atleta</th>
                 {eventosFiltrados.map(ev => (
                   <th key={ev.id} style={{ padding: gerandoPDF ? '4px 2px' : '10px 5px', borderBottom: '2px solid #e2e8f0', borderRight: '1px solid #e2e8f0', color: '#475569', textAlign: 'center' }}>
                     <div style={{ fontWeight: 'bold', color: '#1e293b' }}>{new Date(ev.data).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })}</div>
                     <div style={{ fontSize: '0.85em', fontWeight: 'normal', color: ev.tipo.includes('Jogo') ? '#ef4444' : '#10b981' }}>{ev.tipo.split(' ')[0]}</div>
                   </th>
                 ))}
-                <th style={{ backgroundColor: '#f8fafc', padding: gerandoPDF ? '6px 8px' : '12px', borderBottom: '2px solid #e2e8f0', borderLeft: '2px solid #e2e8f0', color: '#0f172a', textAlign: 'center', minWidth: gerandoPDF ? 'auto' : '60px' }}>Média</th>
+                <th style={{ position: gerandoPDF ? 'static' : 'sticky', right: 0, zIndex: 2, backgroundColor: '#f8fafc', padding: gerandoPDF ? '6px 8px' : '12px', borderBottom: '2px solid #e2e8f0', borderLeft: '2px solid #e2e8f0', color: '#0f172a', textAlign: 'center', minWidth: gerandoPDF ? 'auto' : '60px' }}>Média</th>
               </tr>
             </thead>
             <tbody>
@@ -172,7 +167,7 @@ export default function GrelhaNotas({ atletas }: GrelhaNotasProps) {
 
                   return (
                     <tr key={a.id}>
-                      <td style={{ backgroundColor: 'white', padding: gerandoPDF ? '4px 8px' : '10px 12px', borderBottom: '1px solid #f1f5f9', borderRight: '2px solid #e2e8f0', fontWeight: '600', color: '#1e293b', whiteSpace: 'nowrap' }}>
+                      <td style={{ position: gerandoPDF ? 'static' : 'sticky', left: 0, zIndex: 1, backgroundColor: 'white', padding: gerandoPDF ? '4px 8px' : '10px 12px', borderBottom: '1px solid #f1f5f9', borderRight: '2px solid #e2e8f0', fontWeight: '600', color: '#1e293b', whiteSpace: 'nowrap' }}>
                         {a.numero ? `${a.numero} - ` : ''}{a.nome}
                       </td>
                       {eventosFiltrados.map(ev => {
@@ -207,7 +202,7 @@ export default function GrelhaNotas({ atletas }: GrelhaNotasProps) {
                           </td>
                         );
                       })}
-                      <td style={{ backgroundColor: '#f8fafc', padding: gerandoPDF ? '4px 8px' : '10px', borderBottom: '1px solid #f1f5f9', borderLeft: '2px solid #e2e8f0', textAlign: 'center', fontWeight: 'bold', color: '#10b981', fontSize: '1.1em' }}>
+                      <td style={{ position: gerandoPDF ? 'static' : 'sticky', right: 0, zIndex: 1, backgroundColor: '#f8fafc', padding: gerandoPDF ? '4px 8px' : '10px', borderBottom: '1px solid #f1f5f9', borderLeft: '2px solid #e2e8f0', textAlign: 'center', fontWeight: 'bold', color: '#10b981', fontSize: '1.1em' }}>
                         {countNotas > 0 ? (totalNotas / countNotas).toFixed(2) : '-'}
                       </td>
                     </tr>
@@ -217,7 +212,6 @@ export default function GrelhaNotas({ atletas }: GrelhaNotasProps) {
             </tbody>
           </table>
           
-          {/* LEGENDA NO FINAL DA TABELA */}
           <div style={{ padding: gerandoPDF ? '6px' : '15px', backgroundColor: '#f8fafc', borderTop: '2px solid #e2e8f0', fontSize: gerandoPDF ? '0.7em' : '0.85em', color: '#64748b', display: 'flex', gap: '15px', flexWrap: 'wrap', justifyContent: 'center' }}>
             <span><strong style={{ color: '#ef4444' }}>F</strong> = Falta (0 pts)</span>
             <span><strong style={{ color: '#3b82f6' }}>J</strong> = Justificada</span>
