@@ -40,11 +40,9 @@ export default function App() {
     return 'dashboard';
   });
 
-  const [nomeClube, setNomeClube] = useState('Clube');
   const [atletas, setAtletas] = useState<Atleta[]>([]);
 
   useEffect(() => {
-    fetchConfiguracoes();
     if (user && user.perfil !== 'atleta') {
       fetchAtletas();
       supabase.from('utilizadores').select('*').eq('id', user.id).single().then(({ data }) => {
@@ -71,11 +69,6 @@ export default function App() {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, [user, view]);
-
-  const fetchConfiguracoes = async () => {
-    const { data } = await supabase.from('configuracoes').select('*').eq('chave', 'nome_clube').single();
-    if (data) setNomeClube(data.valor);
-  };
 
   const fetchAtletas = async () => {
     const { data } = await supabase.from('atletas').select('*').order('nome');
@@ -138,7 +131,7 @@ export default function App() {
   };
 
   if (!user || view === 'login') {
-    return <Login nomeClube={nomeClube} onLoginSuccess={loginSucesso} />;
+    return <Login nomeClube="Clube União Desportivo Leverense" onLoginSuccess={loginSucesso} />;
   }
 
   const btnNavStyle = (ativo: boolean) => ({
@@ -149,8 +142,21 @@ export default function App() {
 
   return (
     <div style={{ fontFamily: 'system-ui, sans-serif', backgroundColor: '#f8fafc', minHeight: '100vh', fontSize: '0.95em' }}>
-      <header className="no-print" style={{ backgroundColor: '#0f172a', padding: '15px 20px', color: 'white', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '15px', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>
-        <div style={{ fontWeight: 'bold', fontSize: '1.2em' }}>⚽ {nomeClube}</div>
+      <header className="no-print" style={{ backgroundColor: '#0f172a', padding: '10px 20px', color: 'white', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '15px', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <img 
+            src="/logor.png" 
+            alt="Logo" 
+            style={{ height: '40px', width: 'auto', objectFit: 'contain' }} 
+            onError={(e) => e.currentTarget.style.display = 'none'} 
+          />
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontWeight: 'bold', fontSize: '1.1em', lineHeight: '1.2', textTransform: 'uppercase' }}>Clube União Desportivo Leverense</span>
+            <span style={{ fontSize: '0.85em', color: '#94a3b8' }}>Sub-17 Feminino</span>
+          </div>
+        </div>
+
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <span style={{ fontSize: '0.85em', color: '#cbd5e1', marginRight: '5px' }}>{user.nome.split(' ')[0]}</span>
           {user.perfil !== 'atleta' && (
@@ -210,7 +216,7 @@ export default function App() {
         {user.perfil !== 'atleta' && view === 'grelha' && <GrelhaNotas atletas={atletas} />}
         {user.perfil !== 'atleta' && view === 'evento' && eventoSelecionado && <AvaliacaoEvento evento={eventoSelecionado} user={user} atletas={atletas} onVoltar={irParaDashboard} onMudarEvento={selecionarEvento} />}
         {user.perfil !== 'atleta' && view === 'relatorio' && podeVerRelatorios && <Relatorio atletas={atletas} />}
-        {user.perfil === 'admin' && view === 'admin' && <Admin nomeClube={nomeClube} onNomeClubeAtualizado={fetchConfiguracoes} />}
+        {user.perfil === 'admin' && view === 'admin' && <Admin />}
       </main>
     </div>
   );

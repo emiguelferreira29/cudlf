@@ -2,15 +2,9 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import type { Utilizador, Atleta, Evento } from '../types';
 
-interface AdminProps {
-  nomeClube: string;
-  onNomeClubeAtualizado: () => void;
-}
-
 const PESO_POSICAO: Record<string, number> = { 'Guarda-Redes': 1, 'Defesa': 2, 'Médio': 3, 'Avançada': 4 };
 
-export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) {
-  const [inputNome, setInputNome] = useState(nomeClube);
+export default function Admin() {
   const [utilizadores, setUtilizadores] = useState<Utilizador[]>([]);
   const [atletas, setAtletas] = useState<Atleta[]>([]);
   const [eventos, setEventos] = useState<Evento[]>([]);
@@ -117,7 +111,6 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
   const limparFormUser = () => { setEditandoUser(null); setNovoUserNome(''); setNovoUserUsername(''); setNovoUserSenha(''); setNovoUserPerfil('treinador'); setNovoUserAcesso(true); };
   const removerUser = async (id: string) => { if (window.confirm('Eliminar utilizador permanentemente?')) { await supabase.from('utilizadores').delete().eq('id', id); fetchUsers(); } };
   const alternarAcessoRelatorio = async (id: string, estadoAtual: boolean) => { await supabase.from('utilizadores').update({ acesso_relatorios: !estadoAtual }).eq('id', id); fetchUsers(); };
-  const guardarClube = async (e: React.FormEvent) => { e.preventDefault(); const { error } = await supabase.from('configuracoes').update({ valor: inputNome }).eq('chave', 'nome_clube'); if (!error) { alert('Nome guardado!'); onNomeClubeAtualizado(); } };
 
   const salvarAtleta = async (e: React.FormEvent) => {
     e.preventDefault(); setSalvandoAtleta(true); let urlFinal = novaFoto; 
@@ -179,14 +172,6 @@ export default function Admin({ nomeClube, onNomeClubeAtualizado }: AdminProps) 
           </div>
         </div>
       )}
-
-      <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-        <h3 style={{ color: '#0f172a', margin: '0 0 15px 0' }}>⚙️ Definições do Clube</h3>
-        <form onSubmit={guardarClube} style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-          <div style={{ flex: '1 1 200px' }}><input type="text" value={inputNome} onChange={(e) => setInputNome(e.target.value)} required style={inputStyle} /></div>
-          <button type="submit" style={{ padding: '8px 15px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Guardar Alterações</button>
-        </form>
-      </div>
 
       <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: editandoAtleta ? '2px solid #f59e0b' : 'none' }}>
         <h3 style={{ color: '#0f172a', margin: '0 0 15px 0' }}>👥 {editandoAtleta ? 'Editar Atleta' : 'Gestão de Plantel'}</h3>
