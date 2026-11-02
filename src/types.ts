@@ -2,6 +2,7 @@ export interface Atleta {
   id: string;
   numero?: number;
   nome: string;
+  nome_completo?: string;
   posicao: string;
   foto_url?: string;
 }

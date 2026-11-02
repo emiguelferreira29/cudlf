@@ -22,6 +22,7 @@ export default function Admin() {
 
   const [novoNumero, setNovoNumero] = useState('');
   const [novoNomeAtleta, setNovoNomeAtleta] = useState('');
+  const [novoNomeCompleto, setNovoNomeCompleto] = useState('');
   const [novaPosicao, setNovaPosicao] = useState('Guarda-Redes');
   const [novaFoto, setNovaFoto] = useState(''); 
   const [fotoFile, setFotoFile] = useState<File | null>(null); 
@@ -120,13 +121,13 @@ export default function Admin() {
       if (uploadError) { alert('Erro: ' + uploadError.message); setSalvandoAtleta(false); return; }
       const { data: publicUrlData } = supabase.storage.from('fotos').getPublicUrl(fileName); urlFinal = publicUrlData.publicUrl;
     }
-    const dados = { numero: novoNumero ? parseInt(novoNumero) : null, nome: novoNomeAtleta, posicao: novaPosicao, foto_url: urlFinal };
+    const dados = { numero: novoNumero ? parseInt(novoNumero) : null, nome: novoNomeAtleta, nome_completo: novoNomeCompleto, posicao: novaPosicao, foto_url: urlFinal };
     if (editandoAtleta) await supabase.from('atletas').update(dados).eq('id', editandoAtleta);
     else await supabase.from('atletas').insert([dados]);
-    setNovoNumero(''); setNovoNomeAtleta(''); setNovaPosicao('Guarda-Redes'); setNovaFoto(''); setFotoFile(null); setEditandoAtleta(null); setSalvandoAtleta(false); fetchAtletas();
+    setNovoNumero(''); setNovoNomeAtleta(''); setNovoNomeCompleto(''); setNovaPosicao('Guarda-Redes'); setNovaFoto(''); setFotoFile(null); setEditandoAtleta(null); setSalvandoAtleta(false); fetchAtletas();
   };
 
-  const iniciarEdicaoAtleta = (a: Atleta) => { setEditandoAtleta(a.id); setNovoNumero(a.numero?.toString() || ''); setNovoNomeAtleta(a.nome); setNovaPosicao(a.posicao); setNovaFoto(a.foto_url || ''); setFotoFile(null); };
+  const iniciarEdicaoAtleta = (a: Atleta) => { setEditandoAtleta(a.id); setNovoNumero(a.numero?.toString() || ''); setNovoNomeAtleta(a.nome); setNovoNomeCompleto(a.nome_completo || ''); setNovaPosicao(a.posicao); setNovaFoto(a.foto_url || ''); setFotoFile(null); };
   const removerAtleta = async (id: string) => { if (window.confirm('Apagar atleta?')) { await supabase.from('atletas').delete().eq('id', id); fetchAtletas(); } };
 
   const salvarEvento = async (e: React.FormEvent) => {
@@ -178,13 +179,14 @@ export default function Admin() {
         <form onSubmit={salvarAtleta} style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', alignItems: 'flex-end', marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #e2e8f0' }}>
           <div style={{ flex: '0 1 70px' }}><label style={{ display: 'block', fontSize: '0.8em', color: '#64748b', marginBottom: '4px' }}>Nº</label><input type="number" value={novoNumero} onChange={(e) => setNovoNumero(e.target.value)} style={inputStyle} /></div>
           <div style={{ flex: '1 1 150px' }}><label style={{ display: 'block', fontSize: '0.8em', color: '#64748b', marginBottom: '4px' }}>Nome da Atleta</label><input type="text" value={novoNomeAtleta} onChange={(e) => setNovoNomeAtleta(e.target.value)} required style={inputStyle} /></div>
+          <div style={{ flex: '1 1 180px' }}><label style={{ display: 'block', fontSize: '0.8em', color: '#64748b', marginBottom: '4px' }}>Nome Completo (Diplomas)</label><input type="text" placeholder="Opcional" value={novoNomeCompleto} onChange={(e) => setNovoNomeCompleto(e.target.value)} style={inputStyle} /></div>
           <div style={{ flex: '1 1 140px' }}><label style={{ display: 'block', fontSize: '0.8em', color: '#64748b', marginBottom: '4px' }}>Posição</label><select value={novaPosicao} onChange={(e) => setNovaPosicao(e.target.value)} style={inputStyle}><option value="Guarda-Redes">Guarda-Redes</option><option value="Defesa">Defesa</option><option value="Médio">Médio</option><option value="Avançada">Avançada</option></select></div>
           <div style={{ flex: '1 1 200px' }}><label style={{ display: 'block', fontSize: '0.8em', color: '#64748b', marginBottom: '4px' }}>{editandoAtleta && novaFoto ? 'Substituir Foto' : 'Adicionar Foto'}</label><input type="file" accept="image/*" onChange={(e) => setFotoFile(e.target.files ? e.target.files[0] : null)} style={{ ...inputStyle, padding: '5px', backgroundColor: 'white' }} /></div>
           <div style={{ display: 'flex', gap: '10px' }}>
             <button type="submit" disabled={salvandoAtleta} style={{ padding: '8px 15px', backgroundColor: editandoAtleta ? '#f59e0b' : '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: salvandoAtleta ? 'not-allowed' : 'pointer', height: '35px', opacity: salvandoAtleta ? 0.7 : 1 }}>
               {salvandoAtleta ? 'A Guardar...' : (editandoAtleta ? 'Atualizar' : 'Adicionar')}
             </button>
-            {editandoAtleta && <button type="button" onClick={() => {setEditandoAtleta(null); setNovoNumero(''); setNovoNomeAtleta(''); setNovaFoto(''); setFotoFile(null);}} style={{ padding: '8px 15px', backgroundColor: '#64748b', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', height: '35px' }}>Cancelar</button>}
+            {editandoAtleta && <button type="button" onClick={() => {setEditandoAtleta(null); setNovoNumero(''); setNovoNomeAtleta(''); setNovoNomeCompleto(''); setNovaPosicao('Guarda-Redes'); setNovaFoto(''); setFotoFile(null);}} style={{ padding: '8px 15px', backgroundColor: '#64748b', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', height: '35px' }}>Cancelar</button>}
           </div>
         </form>
         <div style={{ overflowX: 'auto' }}>
