@@ -37,7 +37,6 @@ export default function Diplomas() {
     }
   };
 
-  // Encontrar atletas de mérito no mês selecionado
   const atletasMerito = atletas.map(a => {
     const eventosDoMes = eventos.filter(ev => {
       const d = new Date(ev.data);
@@ -66,11 +65,12 @@ export default function Diplomas() {
       if (!elemento) return;
 
       const opcoes = {
-        margin:       0,
+        margin:       [5, 5, 5, 5],
         filename:     `Diplomas_Merito_${mesSelecionado.replace(/ /g, '_')}.pdf`,
         image:        { type: 'jpeg', quality: 1 },
         html2canvas:  { scale: 2, useCORS: true },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' },
+        pagebreak:    { mode: 'css' }
       };
 
       const executarDownload = () => {
@@ -125,39 +125,54 @@ export default function Diplomas() {
         </div>
       )}
 
-      {/* ÁREA DE IMPRESSÃO DOS DIPLOMAS (Escondida no ecrã normal se não estivermos a gerar) */}
       <div id="area-diplomas" style={{ position: gerandoPDF ? 'relative' : 'absolute', left: gerandoPDF ? 'auto' : '-9999px', top: 0 }}>
         {atletasMerito.map((atleta, index) => (
-          <div key={atleta.id} style={{ width: '297mm', height: '210mm', backgroundColor: 'white', boxSizing: 'border-box', padding: '15mm', pageBreakAfter: index === atletasMerito.length - 1 ? 'auto' : 'always', display: 'flex', flexDirection: 'column' }}>
-            
-            <div style={{ border: '8px double #eab308', borderRadius: '15px', width: '100%', height: '100%', padding: '10mm', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fafaf9' }}>
+          <div key={atleta.id} style={{ 
+            width: '280mm', 
+            height: '190mm', 
+            backgroundColor: 'white', 
+            boxSizing: 'border-box', 
+            padding: '10mm', 
+            pageBreakAfter: index === atletasMerito.length - 1 ? 'auto' : 'always', 
+            display: 'flex', 
+            flexDirection: 'column',
+            margin: '0 auto'
+          }}>
+            <div style={{ border: '6px double #eab308', borderRadius: '15px', width: '100%', height: '100%', padding: '10mm', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fafaf9' }}>
               
               <div style={{ textAlign: 'center' }}>
-                <img src="/logor.png" alt="Logo" style={{ height: '120px', marginBottom: '15px' }} onError={(e) => e.currentTarget.style.display = 'none'} />
-                <h1 style={{ margin: 0, fontSize: '2.5em', color: '#0f172a', textTransform: 'uppercase', fontFamily: 'serif' }}>Clube União Desportivo Leverense</h1>
-                <h2 style={{ margin: '5px 0 0 0', fontSize: '1.5em', color: '#475569', fontWeight: 'normal', letterSpacing: '2px' }}>Sub-17 Feminino</h2>
+                <img src="/logor.png" alt="Logo" style={{ height: '90px', marginBottom: '10px' }} onError={(e) => e.currentTarget.style.display = 'none'} />
+                <h1 style={{ margin: 0, fontSize: '1.8em', color: '#0f172a', textTransform: 'uppercase', fontFamily: 'serif' }}>Clube União Desportivo Leverense</h1>
+                <h2 style={{ margin: '5px 0 0 0', fontSize: '1.2em', color: '#475569', fontWeight: 'normal', letterSpacing: '2px' }}>Sub-17 Feminino</h2>
               </div>
 
-              <div style={{ textAlign: 'center', margin: '30px 0' }}>
-                <div style={{ fontSize: '4em', color: '#eab308', margin: '0 0 10px 0' }}>🏆</div>
-                <h1 style={{ fontSize: '3.5em', color: '#1e293b', margin: '0 0 20px 0', fontFamily: 'serif', fontStyle: 'italic' }}>Diploma de Mérito</h1>
-                <p style={{ fontSize: '1.4em', color: '#334155', margin: '0 0 10px 0' }}>Certificamos que a atleta</p>
-                <h2 style={{ fontSize: '2.5em', color: '#0f172a', margin: '15px 0', borderBottom: '2px solid #cbd5e1', paddingBottom: '10px', display: 'inline-block', minWidth: '60%' }}>
+              <div style={{ textAlign: 'center', margin: '15px 0', maxWidth: '85%' }}>
+                <h1 style={{ fontSize: '3.5em', color: '#eab308', margin: '0 0 5px 0', fontFamily: 'serif', fontStyle: 'italic' }}>Diploma de Mérito</h1>
+                <h2 style={{ fontSize: '1.6em', color: '#1e293b', margin: '0 0 20px 0', textTransform: 'uppercase', letterSpacing: '2px' }}>Atleta Destaque do Mês</h2>
+                
+                <p style={{ fontSize: '1.2em', color: '#334155', margin: '0 0 15px 0', lineHeight: '1.5' }}>
+                  O Clube União Desportivo Leverense tem o orgulho de atribuir este diploma a
+                </p>
+                
+                <h2 style={{ fontSize: '2.4em', color: '#0f172a', margin: '15px 0', borderBottom: '2px solid #cbd5e1', paddingBottom: '10px', display: 'inline-block', minWidth: '80%' }}>
                   {atleta.nome_completo || atleta.nome}
                 </h2>
-                <p style={{ fontSize: '1.4em', color: '#334155', margin: '10px 0 0 0' }}>
-                  destacou-se pelo seu excelente desempenho, obtendo a classificação média de <strong style={{ color: '#eab308', fontSize: '1.2em' }}>{atleta.media.toFixed(2)}</strong> no mês de <strong>{mesSelecionado}</strong>.
+                
+                <p style={{ fontSize: '1.2em', color: '#334155', margin: '15px 0 0 0', lineHeight: '1.5' }}>
+                  em reconhecimento pelo seu empenho, dedicação, espírito de equipa e excelente desempenho desportivo demonstrados ao longo do mês de <strong>{mesSelecionado.split(' ')[0]}</strong>.
                 </p>
               </div>
 
-              <div style={{ width: '100%', display: 'flex', justifyContent: 'space-around', marginTop: 'auto', paddingTop: '20px' }}>
+              <div style={{ width: '100%', display: 'flex', justifyContent: 'space-around', marginTop: 'auto', paddingTop: '10px' }}>
                 <div style={{ textAlign: 'center', width: '35%' }}>
                   <div style={{ borderBottom: '1px solid #475569', height: '30px', marginBottom: '10px' }}></div>
-                  <div style={{ fontSize: '1.1em', color: '#475569', fontWeight: 'bold' }}>Equipa Técnica</div>
+                  <div style={{ fontSize: '1.1em', color: '#0f172a', fontWeight: 'bold' }}>Pedro Rodrigues</div>
+                  <div style={{ fontSize: '0.9em', color: '#475569' }}>Treinador</div>
                 </div>
                 <div style={{ textAlign: 'center', width: '35%' }}>
                   <div style={{ borderBottom: '1px solid #475569', height: '30px', marginBottom: '10px' }}></div>
-                  <div style={{ fontSize: '1.1em', color: '#475569', fontWeight: 'bold' }}>A Direção</div>
+                  <div style={{ fontSize: '1.1em', color: '#0f172a', fontWeight: 'bold' }}>Daniela Silva</div>
+                  <div style={{ fontSize: '0.9em', color: '#475569' }}>Treinadora</div>
                 </div>
               </div>
               
@@ -165,7 +180,6 @@ export default function Diplomas() {
           </div>
         ))}
       </div>
-
     </div>
   );
 }
