@@ -9,28 +9,55 @@ interface PainelAtletaProps {
 export default function PainelAtleta({ user }: PainelAtletaProps) {
   const [atleta, setAtleta] = useState<Atleta | null>(null);
   const [avaliacoes, setAvaliacoes] = useState<any[]>([]);
-  const [periodo, setPeriodo] = useState<'epoca' | 'mes' | 'semana'>('epoca');
-  const [carregando, setCarregando] = useState(true);
+  const [eventos, setEventos] = useState<any[]>([]);
+  
+  const [filtroTipo, setFiltroTipo] = useState<'epoca' | 'mes' | 'semana'>('mes');
+  const [filtroValor, setFiltroValor] = useState<string>('');
+  const [opcoesSemana, setOpcoesSemana] = useState<string[]>([]);
+  const [opcoesMes, setOpcoesMes] = useState<string[]>([]);
 
   useEffect(() => {
-    if (user.atleta_id) {
-      carregarDadosAtleta(user.atleta_id);
-    }
+    if (user.atleta_id) carregarDados(user.atleta_id);
   }, [user.atleta_id]);
 
-  const carregarDadosAtleta = async (atletaId: string) => {
-    setCarregando(true);
-    
-    const { data: atletaData } = await supabase.from('atletas').select('*').eq('id', atletaId).single();
-    if (atletaData) setAtleta(atletaData);
+  useEffect(() => {
+    if (filtroTipo === 'semana' && opcoesSemana.length > 0 && !opcoesSemana.includes(filtroValor)) setFiltroValor(opcoesSemana[0]);
+    else if (filtroTipo === 'mes' && opcoesMes.length > 0 && !opcoesMes.includes(filtroValor)) setFiltroValor(opcoesMes[0]);
+  }, [filtroTipo, opcoesSemana, opcoesMes]);
 
-    const { data: avData } = await supabase
-      .from('avaliacoes')
-      .select('nota, motivo, eventos(id, data, tipo, adversario, fechado)')
-      .eq('atleta_id', atletaId);
+  const carregarDados = async (atletaId: string) => {
+    const { data: atlData } = await supabase.from('atletas').select('*').eq('id', atletaId).single();
+    if (atlData) setAtleta(atlData as Atleta);
 
-    if (avData) setAvaliacoes(avData);
-    setCarregando(false);
+    const { data: evData } = await supabase.from('eventos').select('*').order('data', { ascending: true });
+    const { data: avData } = await supabase.from('avaliacoes').select('*').eq('atleta_id', atletaId);
+
+    if (evData && avData) {
+      setEventos(evData);
+      setAvaliacoes(avData);
+
+      const semanasMap = new Map<string, string>();
+      const mesesMap = new Map<string, string>();
+
+      evData.forEach((ev: any) => {
+        const d = new Date(ev.data);
+        const w = getWeekNumber(d);
+        const yr = d.getFullYear();
+        const mo = d.getMonth() + 1;
+        semanasMap.set(`${yr}-${w.toString().padStart(2, '0')}`, `Semana ${w} (${yr})`);
+        
+        const nomeMes = d.toLocaleString('pt-PT', { month: 'long' });
+        mesesMap.set(`${yr}-${mo.toString().padStart(2, '0')}`, `${nomeMes.charAt(0).toUpperCase() + nomeMes.slice(1)} ${yr}`);
+      });
+
+      const arrSemanas = Array.from(semanasMap.entries()).sort((a, b) => b[0].localeCompare(a[0])).map(e => e[1]);
+      const arrMeses = Array.from(mesesMap.entries()).sort((a, b) => b[0].localeCompare(a[0])).map(e => e[1]);
+      
+      setOpcoesSemana(arrSemanas);
+      setOpcoesMes(arrMeses);
+      
+      if (arrMeses.length > 0) setFiltroValor(arrMeses[0]);
+    }
   };
 
   const getWeekNumber = (d: Date) => {
@@ -41,211 +68,112 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
     return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
   };
 
-  const avaliacoesFiltradas = avaliacoes.filter(av => {
-    if (!av.eventos?.data) return false;
-    if (periodo === 'epoca') return true;
-
-    const d = new Date(av.eventos.data);
-    const hoje = new Date();
-
-    if (periodo === 'mes') {
-      return d.getMonth() === hoje.getMonth() && d.getFullYear() === hoje.getFullYear();
-    }
-    if (periodo === 'semana') {
-      return getWeekNumber(d) === getWeekNumber(hoje) && d.getFullYear() === hoje.getFullYear();
-    }
-    return true;
-  });
-
-  const eventosMap = new Map<string, { evento: any; notas: number[]; motivos: string[] }>();
-  avaliacoesFiltradas.forEach(av => {
-    const ev = av.eventos;
-    if (!eventosMap.has(ev.id)) {
-      eventosMap.set(ev.id, { evento: ev, notas: [], motivos: [] });
-    }
-    const item = eventosMap.get(ev.id)!;
-    
-    if (ev.fechado) {
-      if (av.nota !== null) {
-        item.notas.push(parseFloat(av.nota));
-      } else if (av.motivo) {
-        item.motivos.push(av.motivo);
-      }
-    }
-  });
-
-  const listaEventos = Array.from(eventosMap.values()).map(({ evento, notas, motivos }) => {
-    let notaFinal: string | null = null;
-    let motivoFinal: string | null = null;
-
-    if (evento.fechado) {
-      if (notas.length > 0) {
-        notaFinal = (notas.reduce((a, b) => a + b, 0) / notas.length).toFixed(1);
-      } else if (motivos.length > 0) {
-        motivoFinal = motivos[0];
-      }
-    }
-
-    return {
-      id: evento.id,
-      data: evento.data,
-      tipo: evento.tipo,
-      adversario: evento.adversario,
-      fechado: evento.fechado,
-      notaFinal,
-      motivoFinal
-    };
-  }).sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
-
-  const avaliacoesValidasPeriodo = avaliacoesFiltradas.filter(av => 
-    av.eventos.fechado && (av.nota !== null || av.motivo === 'Falta')
-  );
-  
-  const somaTotal = avaliacoesValidasPeriodo.reduce((sum, av) => sum + (av.nota !== null ? parseFloat(av.nota) : 0), 0);
-  const mediaPeriodo = avaliacoesValidasPeriodo.length > 0 ? (somaTotal / avaliacoesValidasPeriodo.length).toFixed(2) : '-';
-
-  const dadosGrafico = [...listaEventos]
-    .filter(e => e.fechado && e.notaFinal !== null)
-    .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
-
-  const chartWidth = 500;
-  const chartHeight = 180;
-  const paddingX = 45;
-  const paddingY = 25;
-  const graphW = chartWidth - paddingX * 2;
-  const graphH = chartHeight - paddingY * 2;
-
-  const coordenadasPontos = dadosGrafico.map((d, i) => {
-    const x = dadosGrafico.length === 1 
-      ? chartWidth / 2 
-      : paddingX + (i / (dadosGrafico.length - 1)) * graphW;
-    const nota = parseFloat(d.notaFinal!);
-    const y = paddingY + graphH - (nota / 10) * graphH;
-    return { x, y, nota, data: d.data };
-  });
-
-  const caminhoLinha = coordenadasPontos.length > 1
-    ? coordenadasPontos.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
-    : '';
-
-  const caminhoArea = coordenadasPontos.length > 1
-    ? `${caminhoLinha} L ${coordenadasPontos[coordenadasPontos.length - 1].x} ${chartHeight - paddingY} L ${coordenadasPontos[0].x} ${chartHeight - paddingY} Z`
-    : '';
-
-  if (carregando) {
-    return <div style={{ textAlign: 'center', padding: '50px', color: '#64748b' }}>A carregar os teus dados...</div>;
+  if (!atleta) {
+    return <div style={{ textAlign: 'center', padding: '50px', color: '#64748b' }}>A carregar perfil da atleta...</div>;
   }
 
+  const eventosFiltrados = eventos.filter(ev => {
+    if (filtroTipo === 'epoca') return true;
+    const d = new Date(ev.data);
+    if (filtroTipo === 'semana') return `Semana ${getWeekNumber(d)} (${d.getFullYear()})` === filtroValor;
+    if (filtroTipo === 'mes') {
+      const nomeMes = d.toLocaleString('pt-PT', { month: 'long' });
+      return `${nomeMes.charAt(0).toUpperCase() + nomeMes.slice(1)} ${d.getFullYear()}` === filtroValor;
+    }
+    return false;
+  });
+
+  // Cálculo da Média Global
+  const avaliacoesNoFiltro = avaliacoes.filter(av => eventosFiltrados.some(ef => ef.id === av.evento_id) && (av.nota !== null || av.motivo === 'Falta'));
+  const somaGeral = avaliacoesNoFiltro.reduce((acc, av) => acc + (av.nota !== null ? parseFloat(av.nota) : 0), 0);
+  const mediaGlobal = avaliacoesNoFiltro.length > 0 ? (somaGeral / avaliacoesNoFiltro.length).toFixed(2) : '-';
+
+  // Preparação de dados para o Gráfico e Histórico
+  const historico = eventosFiltrados.map(ev => {
+    const avs = avaliacoes.filter(av => av.evento_id === ev.id);
+    const notasNum = avs.filter(av => av.nota !== null).map(av => parseFloat(av.nota));
+    
+    let display = '-';
+    let valNumerico = null;
+    let cor = '#94a3b8';
+
+    if (notasNum.length > 0) {
+      valNumerico = notasNum.reduce((a, b) => a + b, 0) / notasNum.length;
+      display = valNumerico.toFixed(1);
+      cor = '#10b981';
+    } else if (avs.length > 0 && avs[0].motivo) {
+      display = avs[0].motivo;
+      if (display === 'Falta') { valNumerico = 0; cor = '#ef4444'; display = 'Falta (0)'; }
+      else if (display === 'Justificada') { cor = '#3b82f6'; }
+      else if (display === 'Doente') { cor = '#8b5cf6'; }
+      else if (display === 'Lesionada') { cor = '#f97316'; }
+    }
+
+    return { ...ev, display, valNumerico, cor };
+  }).filter(ev => ev.display !== '-');
+
+  const chartData = historico.filter(h => h.valNumerico !== null);
+
   return (
-    <div style={{ maxWidth: '650px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div style={{ maxWidth: '800px', margin: '0 auto', paddingBottom: '40px' }}>
       
-      <div style={{ backgroundColor: 'white', padding: '25px 20px', borderRadius: '12px', boxShadow: '0 2px 6px rgba(0,0,0,0.06)', textAlign: 'center' }}>
-        {atleta?.foto_url ? (
-          <img 
-            src={atleta.foto_url} 
-            alt={atleta.nome} 
-            style={{ width: '90px', height: '90px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #f1f5f9', boxShadow: '0 2px 5px rgba(0,0,0,0.1)', marginBottom: '10px' }} 
-            onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML += '<div style="font-size: 3em; margin-bottom: 8px;">👤</div>'; }}
-          />
+      {/* CABEÇALHO DO PERFIL */}
+      <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '30px 20px', textAlign: 'center', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', marginBottom: '25px' }}>
+        {atleta.foto_url ? (
+          <img src={atleta.foto_url} alt={atleta.nome} style={{ width: '100px', height: '100px', borderRadius: '50%', objectFit: 'cover', border: '4px solid #f1f5f9', margin: '0 auto 15px auto', display: 'block' }} />
         ) : (
-          <div style={{ fontSize: '3em', marginBottom: '8px' }}>👤</div>
+          <div style={{ width: '100px', height: '100px', borderRadius: '50%', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '40px', border: '4px solid #e2e8f0', margin: '0 auto 15px auto' }}>👤</div>
         )}
+        <h1 style={{ margin: '0 0 5px 0', color: '#0f172a', fontSize: '1.8em' }}>{atleta.nome}</h1>
+        <p style={{ margin: '0', color: '#64748b', fontSize: '1em', fontWeight: '500' }}>Nº {atleta.numero || '-'} • {atleta.posicao}</p>
+      </div>
+
+      {/* FILTROS */}
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '25px', flexWrap: 'wrap' }}>
+        <select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value as any)} style={{ padding: '10px 15px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1em', fontWeight: '600', color: '#1e293b', cursor: 'pointer', backgroundColor: 'white', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+          <option value="epoca">Toda a Época</option>
+          <option value="mes">Por Mês</option>
+          <option value="semana">Por Semana</option>
+        </select>
+
+        {filtroTipo === 'semana' && opcoesSemana.length > 0 && (
+          <select value={filtroValor} onChange={(e) => setFiltroValor(e.target.value)} style={{ padding: '10px 15px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1em', fontWeight: '600', color: '#1e293b', cursor: 'pointer', backgroundColor: 'white', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+            {opcoesSemana.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        )}
+
+        {filtroTipo === 'mes' && opcoesMes.length > 0 && (
+          <select value={filtroValor} onChange={(e) => setFiltroValor(e.target.value)} style={{ padding: '10px 15px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1em', fontWeight: '600', color: '#1e293b', cursor: 'pointer', backgroundColor: 'white', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+            {opcoesMes.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+        )}
+      </div>
+
+      {/* MÉDIA */}
+      <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '25px', textAlign: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', marginBottom: '25px', borderTop: '4px solid #3b82f6' }}>
+        <h3 style={{ margin: '0 0 10px 0', color: '#475569', fontSize: '1em', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          A TUA MÉDIA {filtroTipo === 'epoca' ? 'DA ÉPOCA' : (filtroTipo === 'mes' ? 'DESTE MÊS' : 'DESTA SEMANA')}
+        </h3>
+        <div style={{ fontSize: '3.5em', fontWeight: 'bold', color: mediaGlobal === '-' ? '#94a3b8' : '#0f172a', lineHeight: '1' }}>
+          {mediaGlobal}
+        </div>
+      </div>
+
+      {/* GRÁFICO DE EVOLUÇÃO */}
+      <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '25px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', marginBottom: '25px' }}>
+        <h3 style={{ margin: '0 0 20px 0', color: '#0f172a', fontSize: '1.2em', display: 'flex', alignItems: 'center', gap: '8px' }}>📈 Evolução das Notas</h3>
         
-        <h2 style={{ color: '#0f172a', margin: '0 0 4px 0' }}>{atleta?.nome}</h2>
-        <div style={{ color: '#64748b', fontSize: '0.9em', fontWeight: '500' }}>
-          {atleta?.numero ? `Nº ${atleta.numero} • ` : ''}{atleta?.posicao}
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '20px', flexWrap: 'wrap' }}>
-          {(['epoca', 'mes', 'semana'] as const).map(p => (
-            <button 
-              key={p}
-              type="button" 
-              onClick={() => setPeriodo(p)} 
-              style={{ padding: '6px 14px', borderRadius: '20px', border: 'none', cursor: 'pointer', fontSize: '0.85em', fontWeight: '600', backgroundColor: periodo === p ? '#0f172a' : '#f1f5f9', color: periodo === p ? 'white' : '#475569' }}
-            >
-              {p === 'epoca' ? 'Toda a Época' : (p === 'mes' ? 'Este Mês' : 'Esta Semana')}
-            </button>
-          ))}
-        </div>
-
-        <div style={{ marginTop: '20px', padding: '18px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-          <div style={{ fontSize: '0.8em', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#64748b', fontWeight: 'bold' }}>
-            A tua média {periodo === 'epoca' ? 'global' : (periodo === 'mes' ? 'deste mês' : 'desta semana')}
-          </div>
-          <div style={{ fontSize: '3.5em', fontWeight: 'bold', color: mediaPeriodo !== '-' ? '#10b981' : '#94a3b8', lineHeight: '1.2' }}>
-            {mediaPeriodo}
-          </div>
-        </div>
-      </div>
-
-      <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 6px rgba(0,0,0,0.06)' }}>
-        <h3 style={{ color: '#1e293b', fontSize: '1.05em', margin: '0 0 15px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>📈 Evolução das Notas</h3>
-        {dadosGrafico.length === 0 ? (
-          <div style={{ padding: '30px', textAlign: 'center', color: '#94a3b8', fontSize: '0.9em' }}>Sem notas publicadas neste período para desenhar o gráfico.</div>
-        ) : dadosGrafico.length === 1 ? (
-          <div style={{ padding: '25px', textAlign: 'center', color: '#64748b', fontSize: '0.9em', backgroundColor: '#f8fafc', borderRadius: '8px' }}>Apenas tens 1 pontuação publicada ({dadosGrafico[0].notaFinal}) neste período. O gráfico de linha aparecerá quando tiveres mais eventos fechados.</div>
+        {chartData.length === 0 ? (
+          <div style={{ textAlign: 'center', color: '#94a3b8', padding: '20px 0' }}>Sem notas numéricas para desenhar o gráfico.</div>
         ) : (
-          <div style={{ width: '100%', overflowX: 'auto' }}>
-            <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} style={{ width: '100%', height: 'auto', display: 'block', minWidth: '320px' }}>
-              <defs>
-                <linearGradient id="degradeNota" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#10b981" stopOpacity="0.3" /><stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
-                </linearGradient>
-              </defs>
-              {[0, 5, 10].map(val => {
-                const y = paddingY + graphH - (val / 10) * graphH;
-                return (
-                  <g key={val}>
-                    <line x1={paddingX} y1={y} x2={chartWidth - paddingX} y2={y} stroke="#f1f5f9" strokeWidth="1" strokeDasharray={val === 5 ? '4 4' : undefined} />
-                    <text x={paddingX - 10} y={y + 3} textAnchor="end" fontSize="10" fill="#94a3b8" fontWeight="bold">{val}</text>
-                  </g>
-                );
-              })}
-              <path d={caminhoArea} fill="url(#degradeNota)" />
-              <path d={caminhoLinha} fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-              {coordenadasPontos.map((p, i) => (
-                <g key={i}>
-                  <circle cx={p.x} cy={p.y} r="5" fill="white" stroke="#10b981" strokeWidth="3" />
-                  <text x={p.x} y={p.y - 10} textAnchor="middle" fontSize="11" fill="#0f172a" fontWeight="bold">{p.nota.toFixed(1)}</text>
-                  <text x={p.x} y={chartHeight - 6} textAnchor="middle" fontSize="9" fill="#94a3b8">{new Date(p.data).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })}</text>
-                </g>
-              ))}
-            </svg>
-          </div>
-        )}
-      </div>
-
-      <div>
-        <h3 style={{ color: '#1e293b', fontSize: '1.1em', margin: '0 0 15px 0' }}>Histórico de Eventos</h3>
-        {listaEventos.length === 0 ? (
-          <div style={{ backgroundColor: 'white', padding: '25px', textAlign: 'center', color: '#64748b', borderRadius: '8px' }}>Ainda não existem registos no teu histórico para este período.</div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {listaEventos.map(ev => {
-              const dataFormatada = new Date(ev.data).toLocaleDateString('pt-PT');
-              const diaSemana = new Date(ev.data).toLocaleDateString('pt-PT', { weekday: 'long' }).split('-')[0];
-
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px', height: '160px', overflowX: 'auto', paddingBottom: '10px', borderBottom: '1px solid #e2e8f0' }}>
+            {chartData.map((d, idx) => {
+              const altura = d.valNumerico === 0 ? 5 : (d.valNumerico / 10) * 100;
               return (
-                <div key={ev.id} style={{ backgroundColor: 'white', padding: '14px 16px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontWeight: 'bold', color: '#1e293b', fontSize: '0.95em' }}>{dataFormatada}</div>
-                    <div style={{ fontSize: '0.8em', color: '#64748b', textTransform: 'capitalize' }}>
-                      {diaSemana} • <span style={{ color: ev.tipo.includes('Jogo') ? '#dc2626' : '#16a34a', fontWeight: '600' }}>{ev.tipo}</span>
-                    </div>
-                    {ev.adversario && <div style={{ fontSize: '0.8em', color: '#64748b', marginTop: '2px' }}>🆚 {ev.adversario}</div>}
-                  </div>
-                  <div>
-                    {ev.fechado ? (
-                      ev.notaFinal !== null ? (
-                        <span style={{ fontSize: '1.2em', fontWeight: 'bold', color: '#f59e0b', backgroundColor: '#fef3c7', padding: '6px 12px', borderRadius: '8px' }}>{ev.notaFinal}</span>
-                      ) : (
-                        <span style={{ fontSize: '0.8em', fontWeight: '600', color: ev.motivoFinal === 'Falta' ? '#ef4444' : '#64748b', backgroundColor: '#f1f5f9', padding: '6px 10px', borderRadius: '6px' }}>{ev.motivoFinal || '-'}</span>
-                      )
-                    ) : (
-                      <span style={{ fontSize: '0.8em', fontWeight: '600', color: '#64748b', backgroundColor: '#f1f5f9', padding: '6px 10px', borderRadius: '6px' }}>🔒 Em avaliação</span>
-                    )}
-                  </div>
+                <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '45px', flex: '1', height: '100%', justifyContent: 'flex-end' }}>
+                  <span style={{ fontSize: '0.8em', fontWeight: 'bold', color: d.cor, marginBottom: '4px' }}>{d.valNumerico.toFixed(1)}</span>
+                  <div style={{ width: '100%', height: `${altura}%`, backgroundColor: d.valNumerico === 0 ? '#ef4444' : '#3b82f6', borderRadius: '4px 4px 0 0', transition: 'height 0.3s ease' }}></div>
+                  <span style={{ fontSize: '0.7em', color: '#64748b', marginTop: '6px', whiteSpace: 'nowrap' }}>{new Date(d.data).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })}</span>
                 </div>
               );
             })}
@@ -253,6 +181,28 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
         )}
       </div>
 
+      {/* HISTÓRICO DE EVENTOS */}
+      <h3 style={{ margin: '0 0 15px 0', color: '#0f172a', fontSize: '1.2em' }}>Histórico de Eventos</h3>
+      {historico.length === 0 ? (
+        <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '30px', textAlign: 'center', color: '#94a3b8', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+          Ainda não existem registos no teu histórico para este período.
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {historico.reverse().map(ev => (
+            <div key={ev.id} style={{ backgroundColor: 'white', borderRadius: '10px', padding: '15px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', borderLeft: `4px solid ${ev.cor}` }}>
+              <div>
+                <div style={{ fontWeight: 'bold', color: '#1e293b', fontSize: '1.05em' }}>{new Date(ev.data).toLocaleDateString('pt-PT', { weekday: 'long', day: '2-digit', month: 'long' })}</div>
+                <div style={{ fontSize: '0.85em', color: '#64748b', marginTop: '2px' }}>{ev.tipo} {ev.adversario ? ` 🆚 ${ev.adversario}` : ''}</div>
+              </div>
+              <div style={{ fontSize: '1.2em', fontWeight: 'bold', color: ev.cor, backgroundColor: '#f8fafc', padding: '8px 15px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                {ev.display}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      
     </div>
   );
 }
