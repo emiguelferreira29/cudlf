@@ -9,8 +9,9 @@ import Admin from './pages/Admin';
 import Relatorio from './pages/Relatorio';
 import GrelhaNotas from './pages/GrelhaNotas';
 import PainelAtleta from './pages/PainelAtleta';
+import Diplomas from './pages/Diplomas';
 
-type ViewState = 'login' | 'dashboard' | 'admin' | 'evento' | 'relatorio' | 'atleta' | 'partida_pergunta' | 'partida_nao' | 'partida_sim' | 'grelha';
+type ViewState = 'login' | 'dashboard' | 'admin' | 'evento' | 'relatorio' | 'atleta' | 'partida_pergunta' | 'partida_nao' | 'partida_sim' | 'grelha' | 'diplomas';
 
 export default function App() {
   const [user, setUser] = useState<Utilizador | null>(() => {
@@ -36,7 +37,7 @@ export default function App() {
     } catch {}
 
     if (viewSalva === 'evento' && eventoSalvo) return 'evento';
-    if (['dashboard', 'admin', 'relatorio', 'grelha', 'partida_pergunta', 'partida_nao', 'partida_sim'].includes(viewSalva)) return viewSalva;
+    if (['dashboard', 'admin', 'relatorio', 'grelha', 'diplomas', 'partida_pergunta', 'partida_nao', 'partida_sim'].includes(viewSalva)) return viewSalva;
     return 'dashboard';
   });
 
@@ -164,6 +165,7 @@ export default function App() {
               <button onClick={irParaDashboard} style={btnNavStyle(view === 'dashboard')}>Painel</button>
               <button onClick={() => irParaView('grelha')} style={btnNavStyle(view === 'grelha')}>Grelha de Notas</button>
               {podeVerRelatorios && <button onClick={() => irParaView('relatorio')} style={btnNavStyle(view === 'relatorio')}>Relatórios Direção</button>}
+              {user.perfil === 'admin' && <button onClick={() => irParaView('diplomas')} style={btnNavStyle(view === 'diplomas')}>Diplomas</button>}
               {user.perfil === 'admin' && <button onClick={() => irParaView('admin')} style={btnNavStyle(view === 'admin')}>Admin</button>}
             </>
           )}
@@ -216,6 +218,7 @@ export default function App() {
         {user.perfil !== 'atleta' && view === 'grelha' && <GrelhaNotas atletas={atletas} />}
         {user.perfil !== 'atleta' && view === 'evento' && eventoSelecionado && <AvaliacaoEvento evento={eventoSelecionado} user={user} atletas={atletas} onVoltar={irParaDashboard} onMudarEvento={selecionarEvento} />}
         {user.perfil !== 'atleta' && view === 'relatorio' && podeVerRelatorios && <Relatorio atletas={atletas} />}
+        {user.perfil === 'admin' && view === 'diplomas' && <Diplomas />}
         {user.perfil === 'admin' && view === 'admin' && <Admin />}
       </main>
     </div>
