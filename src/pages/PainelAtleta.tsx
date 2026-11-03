@@ -33,13 +33,16 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
     const { data: avData } = await supabase.from('avaliacoes').select('*').eq('atleta_id', atletaId);
 
     if (evData && avData) {
-      setEventos(evData);
+      // FILTRO CRUCIAL: Apenas eventos que já foram fechados pelo Admin
+      const eventosFechados = evData.filter((ev: any) => ev.fechado === true);
+      
+      setEventos(eventosFechados);
       setAvaliacoes(avData);
 
       const semanasMap = new Map<string, string>();
       const mesesMap = new Map<string, string>();
 
-      evData.forEach((ev: any) => {
+      eventosFechados.forEach((ev: any) => {
         const d = new Date(ev.data);
         const w = getWeekNumber(d);
         const yr = d.getFullYear();
@@ -107,7 +110,7 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
         const mediaReal = soma / avsValidas.length;
         
         display = mediaReal.toFixed(1);
-        valNumerico = parseFloat(display); // Usa o valor arredondado à décima igual à grelha
+        valNumerico = parseFloat(display);
         cor = '#10b981';
         
         somaMediasDiarias += valNumerico;
