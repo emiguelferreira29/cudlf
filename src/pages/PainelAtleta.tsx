@@ -83,24 +83,9 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
     return false;
   });
 
-  // Cálculo da Média dos Eventos (Justa)
   let somaMediasDiarias = 0;
   let diasComNota = 0;
 
-  eventosFiltrados.forEach(ev => {
-    const avsDoEvento = avaliacoes.filter(av => av.evento_id === ev.id);
-    const avsValidas = avsDoEvento.filter(av => av.nota !== null || av.motivo === 'Falta');
-    
-    if (avsValidas.length > 0) {
-      const somaDia = avsValidas.reduce((acc, av) => acc + (av.nota !== null ? parseFloat(av.nota) : 0), 0);
-      somaMediasDiarias += (somaDia / avsValidas.length);
-      diasComNota++;
-    }
-  });
-
-  const mediaGlobal = diasComNota > 0 ? (somaMediasDiarias / diasComNota).toFixed(2) : '-';
-
-  // Histórico Corrigido para bater exatamente com a média final
   const historico = eventosFiltrados.map(ev => {
     const avs = avaliacoes.filter(av => av.evento_id === ev.id);
     const avsValidas = avs.filter(av => av.nota !== null || av.motivo === 'Falta');
@@ -110,14 +95,23 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
     let cor = '#94a3b8';
 
     if (avsValidas.length > 0) {
-      valNumerico = avsValidas.reduce((a, b) => a + (b.nota !== null ? parseFloat(b.nota) : 0), 0) / avsValidas.length;
-      display = valNumerico.toFixed(1);
-      cor = '#10b981';
-      
-      // Se for exclusivamente falta, pinta de vermelho
       if (avsValidas.every(av => av.motivo === 'Falta')) {
-        cor = '#ef4444';
         display = 'Falta (0)';
+        valNumerico = 0;
+        cor = '#ef4444';
+        
+        somaMediasDiarias += 0;
+        diasComNota++;
+      } else {
+        const soma = avsValidas.reduce((a, b) => a + (b.nota !== null ? parseFloat(b.nota) : 0), 0);
+        const mediaReal = soma / avsValidas.length;
+        
+        display = mediaReal.toFixed(1);
+        valNumerico = parseFloat(display); // Usa o valor arredondado à décima igual à grelha
+        cor = '#10b981';
+        
+        somaMediasDiarias += valNumerico;
+        diasComNota++;
       }
     } else if (avs.length > 0 && avs[0].motivo) {
       display = avs[0].motivo;
@@ -129,6 +123,7 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
     return { ...ev, display, valNumerico, cor };
   }).filter(ev => ev.display !== '-');
 
+  const mediaGlobal = diasComNota > 0 ? (somaMediasDiarias / diasComNota).toFixed(2) : '-';
   const chartData = historico.filter(h => h.valNumerico !== null);
 
   return (

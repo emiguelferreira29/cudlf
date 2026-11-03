@@ -195,20 +195,23 @@ export default function GrelhaNotas({ atletas }: GrelhaNotasProps) {
                         let bold = false;
 
                         if (avsValidas.length > 0) {
-                          const soma = avsValidas.reduce((acc, av) => acc + (av.nota !== null ? parseFloat(av.nota) : 0), 0);
-                          const mediaEv = soma / avsValidas.length;
-                          
-                          somaMediasDiarias += mediaEv;
-                          diasComNota++;
-                          
-                          display = mediaEv.toFixed(1);
-                          color = '#d97706';
-                          bold = true;
-                          
                           if (avsValidas.every(av => av.motivo === 'Falta')) {
                             display = 'F';
                             color = '#ef4444';
                             bg = '#fef2f2';
+                            somaMediasDiarias += 0;
+                            diasComNota++;
+                            bold = true;
+                          } else {
+                            const soma = avsValidas.reduce((acc, av) => acc + (av.nota !== null ? parseFloat(av.nota) : 0), 0);
+                            const mediaEv = soma / avsValidas.length;
+                            
+                            display = mediaEv.toFixed(1);
+                            color = '#d97706';
+                            bold = true;
+                            
+                            somaMediasDiarias += parseFloat(display);
+                            diasComNota++;
                           }
                         } else if (avs.length > 0 && avs[0].motivo) {
                           display = avs[0].motivo;

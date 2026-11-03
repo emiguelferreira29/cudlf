@@ -54,9 +54,17 @@ export default function Diplomas() {
       const avsValidas = avsDoEvento.filter(av => av.nota !== null || av.motivo === 'Falta');
       
       if (avsValidas.length > 0) {
-        const somaDia = avsValidas.reduce((acc, av) => acc + (av.nota !== null ? parseFloat(av.nota) : 0), 0);
-        somaMediasDiarias += (somaDia / avsValidas.length);
-        diasComNota++;
+        if (avsValidas.every(av => av.motivo === 'Falta')) {
+          somaMediasDiarias += 0;
+          diasComNota++;
+        } else {
+          const somaDia = avsValidas.reduce((acc, av) => acc + (av.nota !== null ? parseFloat(av.nota) : 0), 0);
+          const mediaDia = somaDia / avsValidas.length;
+          
+          // Usa o valor arredondado à décima para calcular a média, igual à grelha
+          somaMediasDiarias += parseFloat(mediaDia.toFixed(1)); 
+          diasComNota++;
+        }
       }
     });
 
