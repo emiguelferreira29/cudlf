@@ -133,10 +133,8 @@ export default function GrelhaNotas({ atletas }: GrelhaNotasProps) {
         </div>
       )}
 
-      {/* ÁREA QUE VAI SER CONVERTIDA EM PDF */}
       <div id="relatorio-pdf" style={{ backgroundColor: 'white', padding: gerandoPDF ? '10px' : '0', borderRadius: gerandoPDF ? '0' : '8px' }}>
         
-        {/* CABEÇALHO OFICIAL - SÓ APARECE DURANTE A GERAÇÃO DO PDF */}
         {gerandoPDF && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '10px', paddingBottom: '10px', borderBottom: '2px solid #e2e8f0' }}>
             <img 
@@ -174,8 +172,8 @@ export default function GrelhaNotas({ atletas }: GrelhaNotasProps) {
             <tbody>
               {atletasOrdenados.length === 0 ? <tr><td colSpan={eventosFiltrados.length + 2} style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>Sem dados.</td></tr> : (
                 atletasOrdenados.map(a => {
-                  let totalNotas = 0;
-                  let countNotas = 0;
+                  let somaMediasDiarias = 0;
+                  let diasComNota = 0;
 
                   return (
                     <tr key={a.id}>
@@ -189,24 +187,32 @@ export default function GrelhaNotas({ atletas }: GrelhaNotasProps) {
                       </td>
                       {eventosFiltrados.map(ev => {
                         const avs = avaliacoes.filter(av => av.evento_id === ev.id && av.atleta_id === a.id);
-                        const notasNumericas = avs.filter(av => av.nota !== null).map(av => parseFloat(av.nota));
+                        const avsValidas = avs.filter(av => av.nota !== null || av.motivo === 'Falta');
                         
                         let display = '-';
                         let color = '#94a3b8';
                         let bg = 'transparent';
                         let bold = false;
 
-                        if (notasNumericas.length > 0) {
-                          const mediaEv = notasNumericas.reduce((acc, v) => acc + v, 0) / notasNumericas.length;
-                          totalNotas += mediaEv;
-                          countNotas++;
+                        if (avsValidas.length > 0) {
+                          const soma = avsValidas.reduce((acc, av) => acc + (av.nota !== null ? parseFloat(av.nota) : 0), 0);
+                          const mediaEv = soma / avsValidas.length;
+                          
+                          somaMediasDiarias += mediaEv;
+                          diasComNota++;
+                          
                           display = mediaEv.toFixed(1);
                           color = '#d97706';
                           bold = true;
+                          
+                          if (avsValidas.every(av => av.motivo === 'Falta')) {
+                            display = 'F';
+                            color = '#ef4444';
+                            bg = '#fef2f2';
+                          }
                         } else if (avs.length > 0 && avs[0].motivo) {
                           display = avs[0].motivo;
-                          if (display === 'Falta') { color = '#ef4444'; display = 'F'; totalNotas += 0; countNotas++; bg = '#fef2f2'; bold = true; }
-                          else if (display === 'Justificada') { color = '#3b82f6'; display = 'J'; bg = '#eff6ff'; }
+                          if (display === 'Justificada') { color = '#3b82f6'; display = 'J'; bg = '#eff6ff'; }
                           else if (display === 'Doente') { color = '#8b5cf6'; display = 'D'; bg = '#f5f3ff'; }
                           else if (display === 'Lesionada') { color = '#f97316'; display = 'L'; bg = '#fff7ed'; }
                           else if (display === 'Não convocada') { color = '#64748b'; display = 'NC'; bg = '#f8fafc'; }
@@ -220,7 +226,7 @@ export default function GrelhaNotas({ atletas }: GrelhaNotasProps) {
                         );
                       })}
                       <td style={{ position: gerandoPDF ? 'static' : 'sticky', right: 0, zIndex: 1, backgroundColor: '#f8fafc', padding: gerandoPDF ? '4px 8px' : '10px', borderBottom: '1px solid #f1f5f9', borderLeft: '2px solid #e2e8f0', textAlign: 'center', fontWeight: 'bold', color: '#10b981', fontSize: '1.1em' }}>
-                        {countNotas > 0 ? (totalNotas / countNotas).toFixed(2) : '-'}
+                        {diasComNota > 0 ? (somaMediasDiarias / diasComNota).toFixed(2) : '-'}
                       </td>
                     </tr>
                   );

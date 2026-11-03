@@ -46,15 +46,21 @@ export default function Diplomas() {
       return `${nomeMes.charAt(0).toUpperCase() + nomeMes.slice(1)} ${d.getFullYear()}` === mesSelecionado;
     });
 
-    const avaliacoesNoFiltro = avaliacoes.filter(av => 
-      av.atleta_id === a.id && 
-      eventosDoMes.some(ef => ef.id === av.evento_id) &&
-      (av.nota !== null || av.motivo === 'Falta')
-    );
+    let somaMediasDiarias = 0;
+    let diasComNota = 0;
 
-    const soma = avaliacoesNoFiltro.reduce((acc, av) => acc + (av.nota !== null ? parseFloat(av.nota) : 0), 0);
-    const media = avaliacoesNoFiltro.length > 0 ? (soma / avaliacoesNoFiltro.length) : 0;
+    eventosDoMes.forEach(ev => {
+      const avsDoEvento = avaliacoes.filter(av => av.evento_id === ev.id && av.atleta_id === a.id);
+      const avsValidas = avsDoEvento.filter(av => av.nota !== null || av.motivo === 'Falta');
+      
+      if (avsValidas.length > 0) {
+        const somaDia = avsValidas.reduce((acc, av) => acc + (av.nota !== null ? parseFloat(av.nota) : 0), 0);
+        somaMediasDiarias += (somaDia / avsValidas.length);
+        diasComNota++;
+      }
+    });
 
+    const media = diasComNota > 0 ? (somaMediasDiarias / diasComNota) : 0;
     return { ...a, media: parseFloat(media.toFixed(2)) };
   }).filter(a => a.media >= 7.0).sort((a, b) => b.media - a.media);
 
@@ -162,7 +168,6 @@ export default function Diplomas() {
         </div>
       )}
 
-      {/* PRÉ-VISUALIZAÇÃO NO ECRÃ */}
       {!gerandoPDF && atletaPreview && (
         <div style={{ backgroundColor: '#f8fafc', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)' }}>
           <h3 style={{ margin: '0 0 15px 0', color: '#475569', textAlign: 'center' }}>👀 Pré-visualização do Diploma ({atletaPreview.nome})</h3>
@@ -174,48 +179,48 @@ export default function Diplomas() {
               minWidth: '280mm', 
               backgroundColor: 'white', 
               boxSizing: 'border-box', 
-              padding: '8mm',
+              padding: '10mm',
               boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
               borderRadius: '4px',
               transform: 'scale(0.85)',
               transformOrigin: 'top center',
               marginBottom: '-28.5mm'
             }}>
-              <div style={{ border: '6px double #eab308', borderRadius: '15px', width: '100%', height: '100%', padding: '25px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fafaf9' }}>
+              <div style={{ border: '6px double #eab308', borderRadius: '15px', width: '100%', height: '100%', padding: '15px 30px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fafaf9' }}>
                 
                 <div style={{ textAlign: 'center' }}>
-                  <img src="/logor.png" alt="Logo" style={{ height: '75px', marginBottom: '5px' }} onError={(e) => e.currentTarget.style.display = 'none'} />
-                  <h1 style={{ margin: 0, fontSize: '1.6em', color: '#0f172a', textTransform: 'uppercase', fontFamily: 'serif' }}>Clube União Desportivo Leverense</h1>
-                  <h2 style={{ margin: '2px 0 0 0', fontSize: '1.1em', color: '#475569', fontWeight: 'normal', letterSpacing: '2px' }}>Sub-17 Feminino</h2>
+                  <img src="/logor.png" alt="Logo" style={{ height: '70px', marginBottom: '5px' }} onError={(e) => e.currentTarget.style.display = 'none'} />
+                  <h1 style={{ margin: 0, fontSize: '1.4em', color: '#0f172a', textTransform: 'uppercase', fontFamily: 'serif' }}>Clube União Desportivo Leverense</h1>
+                  <h2 style={{ margin: '2px 0 0 0', fontSize: '1em', color: '#475569', fontWeight: 'normal', letterSpacing: '2px' }}>Sub-17 Feminino</h2>
                 </div>
 
                 <div style={{ textAlign: 'center', maxWidth: '85%' }}>
                   <h1 style={{ fontSize: '3.2em', color: '#eab308', margin: '0 0 5px 0', fontFamily: 'serif', fontStyle: 'italic' }}>Diploma de Mérito</h1>
-                  <h2 style={{ fontSize: '1.4em', color: '#1e293b', margin: '0 0 15px 0', textTransform: 'uppercase', letterSpacing: '2px' }}>Atleta Destaque do Mês</h2>
+                  <h2 style={{ fontSize: '1.4em', color: '#1e293b', margin: '0 0 10px 0', textTransform: 'uppercase', letterSpacing: '2px' }}>Atleta Destaque do Mês</h2>
                   
-                  <p style={{ fontSize: '1.1em', color: '#334155', margin: '0 0 10px 0', lineHeight: '1.5' }}>
+                  <p style={{ fontSize: '1.1em', color: '#334155', margin: '0 0 10px 0', lineHeight: '1.4' }}>
                     O Clube União Desportivo Leverense tem o orgulho de atribuir este diploma a
                   </p>
                   
-                  <h2 style={{ fontSize: '2.2em', color: '#0f172a', margin: '10px 0', borderBottom: '2px solid #cbd5e1', paddingBottom: '5px', display: 'inline-block', minWidth: '80%' }}>
+                  <h2 style={{ fontSize: '2.2em', color: '#0f172a', margin: '5px 0', borderBottom: '2px solid #cbd5e1', paddingBottom: '5px', display: 'inline-block', minWidth: '80%' }}>
                     {atletaPreview.nome_completo || atletaPreview.nome}
                   </h2>
                   
-                  <p style={{ fontSize: '1.1em', color: '#334155', margin: '10px 0 0 0', lineHeight: '1.5' }}>
+                  <p style={{ fontSize: '1.1em', color: '#334155', margin: '10px 0 0 0', lineHeight: '1.4' }}>
                     em reconhecimento pelo seu empenho, dedicação, espírito de equipa e excelente desempenho desportivo demonstrados ao longo do mês de <strong>{mesSelecionado.split(' ')[0]}</strong>.
                   </p>
                 </div>
 
-                <div style={{ width: '100%', display: 'flex', justifyContent: 'space-around', marginTop: 'auto', paddingTop: '15px' }}>
+                <div style={{ width: '100%', display: 'flex', justifyContent: 'space-around', marginTop: 'auto', paddingTop: '5px' }}>
                   <div style={{ textAlign: 'center', width: '35%' }}>
-                    <div style={{ borderBottom: '1px solid #475569', height: '30px', marginBottom: '10px' }}></div>
-                    <div style={{ fontSize: '1.1em', color: '#0f172a', fontWeight: 'bold' }}>Pedro Rodrigues</div>
-                    <div style={{ fontSize: '0.9em', color: '#475569' }}>Treinador</div>
+                    <div style={{ borderBottom: '1px solid #475569', height: '25px', marginBottom: '8px' }}></div>
+                    <div style={{ fontSize: '1em', color: '#0f172a', fontWeight: 'bold' }}>Pedro Rodrigues</div>
+                    <div style={{ fontSize: '0.85em', color: '#475569' }}>Treinador</div>
                   </div>
                   <div style={{ textAlign: 'center', width: '35%' }}>
-                    <div style={{ borderBottom: '1px solid #475569', height: '30px', marginBottom: '10px' }}></div>
-                    <div style={{ fontSize: '1.1em', color: '#0f172a', fontWeight: 'bold' }}>Daniela Silva</div>
-                    <div style={{ fontSize: '0.9em', color: '#475569' }}>Treinadora</div>
+                    <div style={{ borderBottom: '1px solid #475569', height: '25px', marginBottom: '8px' }}></div>
+                    <div style={{ fontSize: '1em', color: '#0f172a', fontWeight: 'bold' }}>Daniela Silva</div>
+                    <div style={{ fontSize: '0.85em', color: '#475569' }}>Treinadora</div>
                   </div>
                 </div>
                 
@@ -225,7 +230,6 @@ export default function Diplomas() {
         </div>
       )}
 
-      {/* ÁREA INVISÍVEL DE IMPRESSÃO */}
       <div id="area-diplomas" style={{ position: gerandoPDF ? 'relative' : 'absolute', left: gerandoPDF ? 'auto' : '-9999px', top: 0 }}>
         {atletasMerito.map((atleta, index) => (
           <div key={atleta.id} style={{ 
@@ -239,41 +243,41 @@ export default function Diplomas() {
             flexDirection: 'column',
             margin: '0 auto'
           }}>
-            <div style={{ border: '6px double #eab308', borderRadius: '15px', width: '100%', height: '100%', padding: '25px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fafaf9' }}>
+            <div style={{ border: '6px double #eab308', borderRadius: '15px', width: '100%', height: '100%', padding: '15px 30px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fafaf9' }}>
               
               <div style={{ textAlign: 'center' }}>
-                <img src="/logor.png" alt="Logo" style={{ height: '75px', marginBottom: '5px' }} onError={(e) => e.currentTarget.style.display = 'none'} />
-                <h1 style={{ margin: 0, fontSize: '1.6em', color: '#0f172a', textTransform: 'uppercase', fontFamily: 'serif' }}>Clube União Desportivo Leverense</h1>
-                <h2 style={{ margin: '2px 0 0 0', fontSize: '1.1em', color: '#475569', fontWeight: 'normal', letterSpacing: '2px' }}>Sub-17 Feminino</h2>
+                <img src="/logor.png" alt="Logo" style={{ height: '70px', marginBottom: '5px' }} onError={(e) => e.currentTarget.style.display = 'none'} />
+                <h1 style={{ margin: 0, fontSize: '1.4em', color: '#0f172a', textTransform: 'uppercase', fontFamily: 'serif' }}>Clube União Desportivo Leverense</h1>
+                <h2 style={{ margin: '2px 0 0 0', fontSize: '1em', color: '#475569', fontWeight: 'normal', letterSpacing: '2px' }}>Sub-17 Feminino</h2>
               </div>
 
               <div style={{ textAlign: 'center', maxWidth: '85%' }}>
                 <h1 style={{ fontSize: '3.2em', color: '#eab308', margin: '0 0 5px 0', fontFamily: 'serif', fontStyle: 'italic' }}>Diploma de Mérito</h1>
-                <h2 style={{ fontSize: '1.4em', color: '#1e293b', margin: '0 0 15px 0', textTransform: 'uppercase', letterSpacing: '2px' }}>Atleta Destaque do Mês</h2>
+                <h2 style={{ fontSize: '1.4em', color: '#1e293b', margin: '0 0 10px 0', textTransform: 'uppercase', letterSpacing: '2px' }}>Atleta Destaque do Mês</h2>
                 
-                <p style={{ fontSize: '1.1em', color: '#334155', margin: '0 0 10px 0', lineHeight: '1.5' }}>
+                <p style={{ fontSize: '1.1em', color: '#334155', margin: '0 0 10px 0', lineHeight: '1.4' }}>
                   O Clube União Desportivo Leverense tem o orgulho de atribuir este diploma a
                 </p>
                 
-                <h2 style={{ fontSize: '2.2em', color: '#0f172a', margin: '10px 0', borderBottom: '2px solid #cbd5e1', paddingBottom: '5px', display: 'inline-block', minWidth: '80%' }}>
+                <h2 style={{ fontSize: '2.2em', color: '#0f172a', margin: '5px 0', borderBottom: '2px solid #cbd5e1', paddingBottom: '5px', display: 'inline-block', minWidth: '80%' }}>
                   {atleta.nome_completo || atleta.nome}
                 </h2>
                 
-                <p style={{ fontSize: '1.1em', color: '#334155', margin: '10px 0 0 0', lineHeight: '1.5' }}>
+                <p style={{ fontSize: '1.1em', color: '#334155', margin: '10px 0 0 0', lineHeight: '1.4' }}>
                   em reconhecimento pelo seu empenho, dedicação, espírito de equipa e excelente desempenho desportivo demonstrados ao longo do mês de <strong>{mesSelecionado.split(' ')[0]}</strong>.
                 </p>
               </div>
 
-              <div style={{ width: '100%', display: 'flex', justifyContent: 'space-around', marginTop: 'auto', paddingTop: '15px' }}>
+              <div style={{ width: '100%', display: 'flex', justifyContent: 'space-around', marginTop: 'auto', paddingTop: '5px' }}>
                 <div style={{ textAlign: 'center', width: '35%' }}>
-                  <div style={{ borderBottom: '1px solid #475569', height: '30px', marginBottom: '10px' }}></div>
-                  <div style={{ fontSize: '1.1em', color: '#0f172a', fontWeight: 'bold' }}>Pedro Rodrigues</div>
-                  <div style={{ fontSize: '0.9em', color: '#475569' }}>Treinador</div>
+                  <div style={{ borderBottom: '1px solid #475569', height: '25px', marginBottom: '8px' }}></div>
+                  <div style={{ fontSize: '1em', color: '#0f172a', fontWeight: 'bold' }}>Pedro Rodrigues</div>
+                  <div style={{ fontSize: '0.85em', color: '#475569' }}>Treinador</div>
                 </div>
                 <div style={{ textAlign: 'center', width: '35%' }}>
-                  <div style={{ borderBottom: '1px solid #475569', height: '30px', marginBottom: '10px' }}></div>
-                  <div style={{ fontSize: '1.1em', color: '#0f172a', fontWeight: 'bold' }}>Daniela Silva</div>
-                  <div style={{ fontSize: '0.9em', color: '#475569' }}>Treinadora</div>
+                  <div style={{ borderBottom: '1px solid #475569', height: '25px', marginBottom: '8px' }}></div>
+                  <div style={{ fontSize: '1em', color: '#0f172a', fontWeight: 'bold' }}>Daniela Silva</div>
+                  <div style={{ fontSize: '0.85em', color: '#475569' }}>Treinadora</div>
                 </div>
               </div>
               

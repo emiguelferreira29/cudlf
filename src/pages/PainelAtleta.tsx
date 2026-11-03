@@ -83,28 +83,45 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
     return false;
   });
 
-  // Cálculo da Média Global
-  const avaliacoesNoFiltro = avaliacoes.filter(av => eventosFiltrados.some(ef => ef.id === av.evento_id) && (av.nota !== null || av.motivo === 'Falta'));
-  const somaGeral = avaliacoesNoFiltro.reduce((acc, av) => acc + (av.nota !== null ? parseFloat(av.nota) : 0), 0);
-  const mediaGlobal = avaliacoesNoFiltro.length > 0 ? (somaGeral / avaliacoesNoFiltro.length).toFixed(2) : '-';
+  // Cálculo da Média dos Eventos (Justa)
+  let somaMediasDiarias = 0;
+  let diasComNota = 0;
 
-  // Preparação de dados para o Gráfico e Histórico
+  eventosFiltrados.forEach(ev => {
+    const avsDoEvento = avaliacoes.filter(av => av.evento_id === ev.id);
+    const avsValidas = avsDoEvento.filter(av => av.nota !== null || av.motivo === 'Falta');
+    
+    if (avsValidas.length > 0) {
+      const somaDia = avsValidas.reduce((acc, av) => acc + (av.nota !== null ? parseFloat(av.nota) : 0), 0);
+      somaMediasDiarias += (somaDia / avsValidas.length);
+      diasComNota++;
+    }
+  });
+
+  const mediaGlobal = diasComNota > 0 ? (somaMediasDiarias / diasComNota).toFixed(2) : '-';
+
+  // Histórico Corrigido para bater exatamente com a média final
   const historico = eventosFiltrados.map(ev => {
     const avs = avaliacoes.filter(av => av.evento_id === ev.id);
-    const notasNum = avs.filter(av => av.nota !== null).map(av => parseFloat(av.nota));
+    const avsValidas = avs.filter(av => av.nota !== null || av.motivo === 'Falta');
     
     let display = '-';
     let valNumerico = null;
     let cor = '#94a3b8';
 
-    if (notasNum.length > 0) {
-      valNumerico = notasNum.reduce((a, b) => a + b, 0) / notasNum.length;
+    if (avsValidas.length > 0) {
+      valNumerico = avsValidas.reduce((a, b) => a + (b.nota !== null ? parseFloat(b.nota) : 0), 0) / avsValidas.length;
       display = valNumerico.toFixed(1);
       cor = '#10b981';
+      
+      // Se for exclusivamente falta, pinta de vermelho
+      if (avsValidas.every(av => av.motivo === 'Falta')) {
+        cor = '#ef4444';
+        display = 'Falta (0)';
+      }
     } else if (avs.length > 0 && avs[0].motivo) {
       display = avs[0].motivo;
-      if (display === 'Falta') { valNumerico = 0; cor = '#ef4444'; display = 'Falta (0)'; }
-      else if (display === 'Justificada') { cor = '#3b82f6'; }
+      if (display === 'Justificada') { cor = '#3b82f6'; }
       else if (display === 'Doente') { cor = '#8b5cf6'; }
       else if (display === 'Lesionada') { cor = '#f97316'; }
     }
@@ -117,7 +134,6 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', paddingBottom: '40px' }}>
       
-      {/* CABEÇALHO DO PERFIL */}
       <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '30px 20px', textAlign: 'center', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', marginBottom: '25px' }}>
         {atleta.foto_url ? (
           <img src={atleta.foto_url} alt={atleta.nome} style={{ width: '100px', height: '100px', borderRadius: '50%', objectFit: 'cover', border: '4px solid #f1f5f9', margin: '0 auto 15px auto', display: 'block' }} />
@@ -128,7 +144,6 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
         <p style={{ margin: '0', color: '#64748b', fontSize: '1em', fontWeight: '500' }}>Nº {atleta.numero || '-'} • {atleta.posicao}</p>
       </div>
 
-      {/* FILTROS */}
       <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '25px', flexWrap: 'wrap' }}>
         <select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value as any)} style={{ padding: '10px 15px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1em', fontWeight: '600', color: '#1e293b', cursor: 'pointer', backgroundColor: 'white', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
           <option value="epoca">Toda a Época</option>
@@ -149,7 +164,6 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
         )}
       </div>
 
-      {/* MÉDIA */}
       <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '25px', textAlign: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', marginBottom: '25px', borderTop: '4px solid #3b82f6' }}>
         <h3 style={{ margin: '0 0 10px 0', color: '#475569', fontSize: '1em', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
           A TUA MÉDIA {filtroTipo === 'epoca' ? 'DA ÉPOCA' : (filtroTipo === 'mes' ? 'DESTE MÊS' : 'DESTA SEMANA')}
@@ -159,7 +173,6 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
         </div>
       </div>
 
-      {/* GRÁFICO DE EVOLUÇÃO */}
       <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '25px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', marginBottom: '25px' }}>
         <h3 style={{ margin: '0 0 20px 0', color: '#0f172a', fontSize: '1.2em', display: 'flex', alignItems: 'center', gap: '8px' }}>📈 Evolução das Notas</h3>
         
@@ -181,7 +194,6 @@ export default function PainelAtleta({ user }: PainelAtletaProps) {
         )}
       </div>
 
-      {/* HISTÓRICO DE EVENTOS */}
       <h3 style={{ margin: '0 0 15px 0', color: '#0f172a', fontSize: '1.2em' }}>Histórico de Eventos</h3>
       {historico.length === 0 ? (
         <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '30px', textAlign: 'center', color: '#94a3b8', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
